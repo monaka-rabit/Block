@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 9x9 - Visible Next</title>
+    <title>Score Puzzle 9x9 - One Screen Layout</title>
     <style>
         :root {
             --bg-color: #2c3e50;
             --grid-color: #34495e;
             --cell-empty: #ecf0f1;
-            --cell-filled: #f1c40f; /* 黄色 */
+            --cell-filled: #f1c40f;
             --cell-preview: rgba(241, 196, 15, 0.5);
             --text: #ffffff;
             --accent: #f1c40f;
             --danger: #e74c3c;
-            --selected: #e74c3c; /* 選択枠の色 */
+            --selected: #e74c3c;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -25,112 +27,199 @@
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 10px;
+            padding: 5px; /* 余白を極小に */
+            height: 100vh; /* 画面いっぱいに固定 */
+            width: 100vw;
+            overflow: hidden; /* スクロール禁止 */
             user-select: none;
             touch-action: none;
-            overscroll-behavior: none;
         }
 
-        h1 { margin: 5px 0 15px 0; font-size: 1.5rem; }
-
-        .game-container {
-            display: flex;
-            gap: 15px;
-            align-items: flex-start;
-            justify-content: center;
-            flex-wrap: wrap;
+        h1 { 
+            margin: 0 0 5px 0; 
+            font-size: 1.2rem; 
+            flex-shrink: 0;
         }
 
-        .side-panel {
-            display: flex;
-            flex-direction: row;
-            gap: 10px;
-            justify-content: center;
-            width: 100%;
-            max-width: 350px;
-        }
-
-        @media (min-width: 700px) {
-            .side-panel {
-                flex-direction: column;
-                width: 140px;
-            }
-        }
-
-        .info-box {
-            background: rgba(0,0,0,0.3);
-            padding: 8px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-            flex: 1;
-        }
-        .info-box h2 { margin: 2px 0; font-size: 1.2rem; }
-        .info-box div { font-size: 0.8rem; color: #ccc; }
-
-        #board {
+        /* メインレイアウトコンテナ (CSS Grid) */
+        .game-layout {
             display: grid;
-            grid-template-columns: repeat(9, 34px);
-            grid-template-rows: repeat(9, 34px);
-            gap: 2px;
-            background-color: var(--grid-color);
-            padding: 3px;
-            border-radius: 4px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            position: relative;
-            margin: 0 auto;
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            gap: 5px;
+            /* スマホ用レイアウト定義 */
+            grid-template-columns: 1fr 60px; /* 左:メイン, 右:NEXTエリア */
+            grid-template-rows: auto 1fr auto auto; /* 上から: 情報, 盤面, 手札, ボタン */
+            grid-template-areas:
+                "stats stats"
+                "board next"
+                "hand  hand"
+                "ctrl  ctrl";
         }
 
-        .cell {
-            width: 34px;
-            height: 34px;
-            background-color: var(--cell-empty);
-            border-radius: 3px;
+        /* PC用レイアウト (画面が広い場合) */
+        @media (min-width: 700px) {
+            .game-layout {
+                max-width: 900px;
+                grid-template-columns: 160px 1fr 160px;
+                grid-template-rows: 1fr auto;
+                grid-template-areas:
+                    "stats-left board stats-right"
+                    "stats-left hand  stats-right";
+                align-content: center;
+            }
+            /* PCではボタンを手札エリアに含めるか別途配置 */
+            .btn-area { grid-area: hand; margin-top: 110px; } 
         }
-        .cell.filled { 
-            background-color: var(--cell-filled);
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
-        }
-        .cell.drag-preview { background-color: var(--cell-preview) !important; }
 
-        #hand-container {
+        /* --- エリアごとのスタイル --- */
+
+        /* 1. 情報エリア (Stats) */
+        .stats-area {
+            grid-area: stats;
             display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            justify-content: center;
-            padding: 10px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-            min-height: 90px;
+            justify-content: space-around;
+            align-items: center;
+            background: rgba(0,0,0,0.2);
+            padding: 5px;
+            border-radius: 5px;
+        }
+        
+        /* PC用の上書き */
+        @media (min-width: 700px) {
+            .stats-area { grid-area: stats-left; flex-direction: column; justify-content: flex-start; gap: 20px; }
+            .stats-right { grid-area: stats-right; display: flex; flex-direction: column; gap: 20px; }
         }
 
-        .piece-slot {
-            width: 85px;
-            height: 85px;
-            background: rgba(0, 0, 0, 0.2);
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
+        .info-item { text-align: center; }
+        .info-item .label { font-size: 0.7rem; color: #ccc; }
+        .info-item .val { font-size: 1.2rem; font-weight: bold; line-height: 1; }
+        #score { color: #2ecc71; }
+        #combo { color: #f1c40f; }
+
+        /* KEEP (情報エリア内に配置) */
+        .keep-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .piece-slot.keep {
+            width: 50px; height: 50px; /* スマホでは小さく */
+        }
+
+        /* 2. 盤面エリア (Board) */
+        .board-wrapper {
+            grid-area: board;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
-            transition: border-color 0.2s, background-color 0.2s;
+            width: 100%;
+            height: 100%;
+            padding: 5px;
         }
 
+        #board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr); /* 可変サイズ */
+            grid-template-rows: repeat(9, 1fr);
+            gap: 1px;
+            background-color: var(--grid-color);
+            padding: 2px;
+            border-radius: 4px;
+            /* 正方形を維持しつつ最大化 */
+            width: 100%;
+            aspect-ratio: 1 / 1; 
+            max-height: 100%;
+        }
+
+        .cell {
+            background-color: var(--cell-empty);
+            border-radius: 2px;
+            width: 100%;
+            height: 100%;
+        }
+        .cell.filled { 
+            background-color: var(--cell-filled);
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+        }
+        .cell.drag-preview { background-color: var(--cell-preview) !important; }
+
+        /* 3. NEXTエリア (縦並び) */
+        .next-area {
+            grid-area: next;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            padding: 5px 0;
+            gap: 5px;
+            overflow-y: auto; /* はみ出たらスクロール */
+        }
+        .next-label { font-size: 0.7rem; color: #ccc; margin-bottom: 5px;writing-mode: vertical-rl; }
+        
+        .next-piece-box {
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        /* 4. 手札エリア */
+        #hand-container {
+            grid-area: hand;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 5px;
+            height: 80px; /* 高さ固定 */
+            align-items: center;
+        }
+
+        .piece-slot {
+            width: 70px; height: 70px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: all 0.2s;
+        }
         .piece-slot.selected {
             border-color: var(--selected);
             background: rgba(231, 76, 60, 0.15);
-            box-shadow: 0 0 10px rgba(231, 76, 60, 0.4);
         }
-        
-        #keep-slot.drag-over {
-            background: rgba(241, 196, 15, 0.2);
-            border-color: var(--accent);
-        }
+        .piece-slot.keep.selected { border-color: var(--selected); }
 
+        /* 5. ボタンエリア */
+        .btn-area {
+            grid-area: ctrl;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px; background: #34495e; color: #fff;
+            border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
+            font-size: 0.9rem;
+        }
+        button:active { background: #446cb3; }
+
+        /* ドラッグ要素 */
         .draggable-wrapper {
             cursor: grab;
-            padding: 10px;
+            padding: 5px;
             touch-action: none;
         }
         .draggable-wrapper:active { cursor: grabbing; opacity: 0.5; }
@@ -143,117 +232,87 @@
             filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
         }
 
-        .piece-grid {
-            display: grid;
-            gap: 1px;
-            pointer-events: none;
-        }
-
+        /* ピース描画 */
+        .piece-grid { display: grid; gap: 1px; pointer-events: none; }
         .mini-cell { box-sizing: border-box; }
 
-        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-        button {
-            padding: 10px 20px; background: #34495e; color: #fff;
-            border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
-        }
-        button:hover { background: #446cb3; }
-
-        /* NEXTリスト（縦並び・見やすく調整） */
-        #next-list {
-            display: flex;
-            flex-direction: column; /* 縦並び */
-            gap: 8px; /* 間隔を広げる */
-            justify-content: center;
-            align-items: center;
-            padding: 5px 0;
-        }
-        
-        /* NEXT個別のスタイル追加 */
-        .next-piece-box {
-            padding: 5px;
-            background: rgba(0,0,0,0.2); /* 少し暗くして目立たせる */
-            border-radius: 6px;
-            width: 60px; /* 固定幅で見やすく */
-            height: 50px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
+        /* オーバーレイ */
         #game-over {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); display: none;
             flex-direction: column; justify-content: center; align-items: center; z-index: 2000;
         }
-        
-        .danger { color: var(--danger); font-weight: bold; animation: blink 1s infinite; }
+        .danger { color: var(--danger); animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* PC用追加スタイル調整 */
+        @media (min-width: 700px) {
+            .stats-right-container { grid-area: stats-right; }
+            /* PCではNEXTもKeepも右側にまとめるなど */
+            .next-area { height: auto; }
+        }
     </style>
 </head>
 <body>
 
     <h1>Score Puzzle 9x9</h1>
 
-    <div class="game-container">
-        <div class="side-panel">
-            <div class="info-box">
-                <div>SCORE</div>
-                <h2 id="score" style="color: #2ecc71;">0</h2>
+    <div class="game-layout">
+        <div class="stats-area">
+            <div class="info-item">
+                <div class="label">SCORE</div>
+                <div class="val" id="score">0</div>
             </div>
-            <div class="info-box">
-                <div>COMBO</div>
-                <h3 id="combo" style="color: #f1c40f;">0</h3>
+            <div class="info-item">
+                <div class="label">COMBO</div>
+                <div class="val" id="combo">0</div>
             </div>
-            <div class="info-box" id="turn-box">
-                <div>残り猶予</div>
-                <h2 id="turn-limit">5</h2>
+            <div class="info-item">
+                <div class="label">TURN</div>
+                <div class="val" id="turn-limit">5</div>
+            </div>
+            <div class="keep-container">
+                <div class="label" style="font-size:0.6rem; color:#ccc;">KEEP</div>
+                <div id="keep-slot" class="piece-slot keep"
+                     onclick="selectHand(-1)"
+                     ondragover="handleKeepDragOver(event)"
+                     ondragleave="handleKeepDragLeave(event)"
+                     ondrop="handleKeepDrop(event)">
+                     <span id="keep-text" style="color:gray; font-size:0.6em; position:absolute;">Drop</span>
+                </div>
             </div>
         </div>
 
-        <div>
+        <div class="board-wrapper">
             <div id="board" 
                  ondragover="handleDragOver(event)" 
                  ondragleave="handleDragLeave(event)" 
                  ondrop="handleDrop(event)">
             </div>
-            
-            <div id="hand-container">
-                <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
-                <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
-                <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
-            </div>
-            
-            <div class="btn-group">
-                <button onclick="rotateSelectedHand()">回転</button>
-                <button onclick="flipSelectedHand()">反転</button>
-            </div>
-            <p style="text-align: center; color: #7f8c8d; font-size: 0.9em; margin-top:10px;">タップで選択 / ドラッグで配置</p>
         </div>
 
-        <div class="side-panel">
-            <div class="info-box">
-                <div>KEEP</div>
-                <div id="keep-slot" class="piece-slot"
-                     onclick="selectHand(-1)"
-                     ondragover="handleKeepDragOver(event)"
-                     ondragleave="handleKeepDragLeave(event)"
-                     ondrop="handleKeepDrop(event)"
-                     style="margin: 5px auto;">
-                     <span id="keep-text" style="color:gray; font-size:0.8em; position:absolute;">Drop</span>
+        <div class="next-area">
+            <div class="next-label">NEXT</div>
+            <div id="next-list" style="display:contents;">
                 </div>
-            </div>
+        </div>
 
-            <div class="info-box" style="flex: 2;">
-                <div>NEXT</div>
-                <div id="next-list"></div>
-            </div>
+        <div id="hand-container">
+            <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
+            <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
+            <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
+        </div>
+
+        <div class="btn-area">
+            <button onclick="rotateSelectedHand()">回転</button>
+            <button onclick="flipSelectedHand()">反転</button>
         </div>
     </div>
 
     <div id="game-over">
         <h1 style="color: #e74c3c;">GAME OVER</h1>
         <p id="game-over-reason" style="font-size: 1.2em; color:white; margin-bottom: 20px;"></p>
-        <h2 style="color: #f1c40f;">Final Score: <span id="final-score"></span></h2>
+        <h2 style="color: #f1c40f;">Final: <span id="final-score"></span></h2>
         <button onclick="initGame()" style="background: #2ecc71; padding: 15px 30px; font-size: 1.2em;">RETRY</button>
     </div>
 
@@ -262,8 +321,9 @@
 const BOARD_SIZE = 9;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
-const HAND_CELL_SIZE = 16;
-const HAND_PADDING = 10;
+// 描画サイズ定数はプレビュー用。盤面はCSSで自動調整される。
+const HAND_CELL_SIZE = 14; 
+const HAND_PADDING = 5;
 
 const SHAPES = {
     '1x1': [[1]],
@@ -346,7 +406,7 @@ function canPlaceAnywhere(matrix) {
 /** 選択機能 */
 function selectHand(index) {
     selectedHandIndex = index;
-    // UIを更新（DOMを破壊しないようにクラス操作のみ）
+    // UI更新（クラス付与のみ）
     [0, 1, 2].forEach(i => {
         const slot = document.getElementById(`hand-${i}`);
         if(slot) {
@@ -389,7 +449,7 @@ function startDragLogic(source, index, clientX, clientY, targetElement) {
     dragOffset.y = relativeY;
 }
 
-/** PC (Mouse) Event Handlers */
+/** PC (Mouse) */
 function handleDragStart(e, source, index) {
     if (isGameOver) { e.preventDefault(); return; }
     startDragLogic(source, index, e.clientX, e.clientY, e.currentTarget);
@@ -423,7 +483,7 @@ function handleDrop(e) {
     attemptPlace(pos.x, pos.y);
 }
 
-/** Mobile (Touch) Event Handlers */
+/** Mobile (Touch) */
 function handleTouchStart(e, source, index) {
     if (isGameOver) return;
     e.preventDefault(); 
@@ -583,7 +643,7 @@ function processTurn() {
 }
 
 function checkGameOver() {
-    if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) { triggerGameOver("タイムアップ！(5ターン経過)"); return; }
+    if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) { triggerGameOver("タイムアップ！"); return; }
     let canMove = false;
     hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
     if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
@@ -613,6 +673,7 @@ function createBoardElements() {
 }
 
 function updateUI() {
+    // 盤面更新
     for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
         const cell = document.getElementById(`c-${y}-${x}`);
         if(cell) cell.className = 'cell' + (board[y][x] ? ' filled' : '');
@@ -671,14 +732,13 @@ function updateUI() {
         if(kText) kText.style.display = 'block';
     }
 
-    // Next (5個縦並び・大きく表示)
+    // Next (5個縦並び)
     const nList = document.getElementById('next-list');
     nList.innerHTML = '';
     pieceQueue.slice(0, 5).forEach(p => {
         const box = document.createElement('div');
         box.className = 'next-piece-box';
-        // 見やすくするためにサイズを12pxに拡大
-        box.appendChild(createPieceElement(p.matrix, 12)); 
+        box.appendChild(createPieceElement(p.matrix, 10)); // 少し小さく
         nList.appendChild(box);
     });
 }
