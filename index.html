@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 9x9 - One Screen Layout</title>
+    <title>Score Puzzle 9x9 - Robust Display</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -27,30 +27,25 @@
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 5px; /* 余白を極小に */
-            height: 100vh; /* 画面いっぱいに固定 */
+            padding: 5px;
+            height: 100vh;
             width: 100vw;
-            overflow: hidden; /* スクロール禁止 */
+            overflow: hidden;
             user-select: none;
             touch-action: none;
         }
 
-        h1 { 
-            margin: 0 0 5px 0; 
-            font-size: 1.2rem; 
-            flex-shrink: 0;
-        }
+        h1 { margin: 0 0 5px 0; font-size: 1.2rem; flex-shrink: 0; }
 
-        /* メインレイアウトコンテナ (CSS Grid) */
+        /* 全体レイアウト */
         .game-layout {
             display: grid;
             width: 100%;
-            max-width: 600px;
             height: 100%;
+            max-width: 600px;
             gap: 5px;
-            /* スマホ用レイアウト定義 */
-            grid-template-columns: 1fr 60px; /* 左:メイン, 右:NEXTエリア */
-            grid-template-rows: auto 1fr auto auto; /* 上から: 情報, 盤面, 手札, ボタン */
+            grid-template-columns: 1fr 60px;
+            grid-template-rows: auto 1fr auto auto;
             grid-template-areas:
                 "stats stats"
                 "board next"
@@ -58,7 +53,6 @@
                 "ctrl  ctrl";
         }
 
-        /* PC用レイアウト (画面が広い場合) */
         @media (min-width: 700px) {
             .game-layout {
                 max-width: 900px;
@@ -67,15 +61,12 @@
                 grid-template-areas:
                     "stats-left board stats-right"
                     "stats-left hand  stats-right";
-                align-content: center;
             }
-            /* PCではボタンを手札エリアに含めるか別途配置 */
-            .btn-area { grid-area: hand; margin-top: 110px; } 
+            .btn-area { grid-area: hand; margin-top: 100px; pointer-events: none; }
+            .btn-area button { pointer-events: auto; }
         }
 
-        /* --- エリアごとのスタイル --- */
-
-        /* 1. 情報エリア (Stats) */
+        /* 1. ステータスエリア */
         .stats-area {
             grid-area: stats;
             display: flex;
@@ -85,60 +76,47 @@
             padding: 5px;
             border-radius: 5px;
         }
-        
-        /* PC用の上書き */
         @media (min-width: 700px) {
-            .stats-area { grid-area: stats-left; flex-direction: column; justify-content: flex-start; gap: 20px; }
-            .stats-right { grid-area: stats-right; display: flex; flex-direction: column; gap: 20px; }
+            .stats-area { grid-area: stats-left; flex-direction: column; justify-content: flex-start; gap: 20px; padding: 20px 5px; }
         }
 
         .info-item { text-align: center; }
         .info-item .label { font-size: 0.7rem; color: #ccc; }
-        .info-item .val { font-size: 1.2rem; font-weight: bold; line-height: 1; }
+        .info-item .val { font-size: 1.2rem; font-weight: bold; }
         #score { color: #2ecc71; }
         #combo { color: #f1c40f; }
 
-        /* KEEP (情報エリア内に配置) */
+        /* KEEP */
         .keep-container {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-        .piece-slot.keep {
-            width: 50px; height: 50px; /* スマホでは小さく */
-        }
-
-        /* 2. 盤面エリア (Board) */
+        
+        /* 2. 盤面エリア */
         .board-wrapper {
             grid-area: board;
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
             width: 100%;
             height: 100%;
-            padding: 5px;
+            overflow: hidden; /* はみ出し防止 */
         }
 
         #board {
             display: grid;
-            grid-template-columns: repeat(9, 1fr); /* 可変サイズ */
-            grid-template-rows: repeat(9, 1fr);
+            /* JSで計算したサイズを適用するため初期値は仮 */
             gap: 1px;
             background-color: var(--grid-color);
             padding: 2px;
             border-radius: 4px;
-            /* 正方形を維持しつつ最大化 */
-            width: 100%;
-            aspect-ratio: 1 / 1; 
-            max-height: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
         .cell {
             background-color: var(--cell-empty);
             border-radius: 2px;
-            width: 100%;
-            height: 100%;
         }
         .cell.filled { 
             background-color: var(--cell-filled);
@@ -146,23 +124,26 @@
         }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
 
-        /* 3. NEXTエリア (縦並び) */
+        /* 3. NEXTエリア */
         .next-area {
             grid-area: next;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
             background: rgba(0,0,0,0.2);
             border-radius: 5px;
             padding: 5px 0;
             gap: 5px;
-            overflow-y: auto; /* はみ出たらスクロール */
+            overflow-y: auto;
         }
-        .next-label { font-size: 0.7rem; color: #ccc; margin-bottom: 5px;writing-mode: vertical-rl; }
-        
+        @media (min-width: 700px) {
+            .next-area { grid-area: stats-right; padding: 20px 5px; }
+        }
+        .next-label { font-size: 0.7rem; color: #ccc; margin-bottom: 5px; writing-mode: vertical-rl; }
+        @media (min-width: 700px) { .next-label { writing-mode: horizontal-tb; } }
+
         .next-piece-box {
-            width: 40px; height: 40px;
+            width: 44px; height: 44px; /* 固定サイズ */
             background: rgba(255,255,255,0.05);
             border-radius: 4px;
             display: flex;
@@ -176,11 +157,11 @@
             grid-area: hand;
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             background: rgba(255,255,255,0.05);
             border-radius: 10px;
             padding: 5px;
-            height: 80px; /* 高さ固定 */
+            height: 80px; 
             align-items: center;
         }
 
@@ -193,15 +174,15 @@
             justify-content: center;
             align-items: center;
             position: relative;
-            transition: all 0.2s;
         }
+        .piece-slot.keep { width: 50px; height: 50px; }
+        
         .piece-slot.selected {
             border-color: var(--selected);
             background: rgba(231, 76, 60, 0.15);
         }
-        .piece-slot.keep.selected { border-color: var(--selected); }
 
-        /* 5. ボタンエリア */
+        /* 5. ボタン */
         .btn-area {
             grid-area: ctrl;
             display: flex;
@@ -212,31 +193,24 @@
         button {
             padding: 10px 20px; background: #34495e; color: #fff;
             border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
-            font-size: 0.9rem;
         }
-        button:active { background: #446cb3; }
 
-        /* ドラッグ要素 */
+        /* ドラッグ関連 */
         .draggable-wrapper {
             cursor: grab;
             padding: 5px;
-            touch-action: none;
+            touch-action: none; 
         }
         .draggable-wrapper:active { cursor: grabbing; opacity: 0.5; }
 
         .drag-ghost {
-            position: fixed;
-            pointer-events: none;
-            z-index: 1000;
-            opacity: 0.9;
-            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
+            position: fixed; pointer-events: none; z-index: 1000;
+            opacity: 0.9; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
         }
 
-        /* ピース描画 */
         .piece-grid { display: grid; gap: 1px; pointer-events: none; }
         .mini-cell { box-sizing: border-box; }
 
-        /* オーバーレイ */
         #game-over {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); display: none;
@@ -244,13 +218,6 @@
         }
         .danger { color: var(--danger); animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
-
-        /* PC用追加スタイル調整 */
-        @media (min-width: 700px) {
-            .stats-right-container { grid-area: stats-right; }
-            /* PCではNEXTもKeepも右側にまとめるなど */
-            .next-area { height: auto; }
-        }
     </style>
 </head>
 <body>
@@ -272,7 +239,7 @@
                 <div class="val" id="turn-limit">5</div>
             </div>
             <div class="keep-container">
-                <div class="label" style="font-size:0.6rem; color:#ccc;">KEEP</div>
+                <div class="label" style="font-size:0.6rem;">KEEP</div>
                 <div id="keep-slot" class="piece-slot keep"
                      onclick="selectHand(-1)"
                      ondragover="handleKeepDragOver(event)"
@@ -283,7 +250,7 @@
             </div>
         </div>
 
-        <div class="board-wrapper">
+        <div class="board-wrapper" id="board-wrapper">
             <div id="board" 
                  ondragover="handleDragOver(event)" 
                  ondragleave="handleDragLeave(event)" 
@@ -293,8 +260,7 @@
 
         <div class="next-area">
             <div class="next-label">NEXT</div>
-            <div id="next-list" style="display:contents;">
-                </div>
+            <div id="next-list" style="display:contents;"></div>
         </div>
 
         <div id="hand-container">
@@ -321,9 +287,11 @@
 const BOARD_SIZE = 9;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
-// 描画サイズ定数はプレビュー用。盤面はCSSで自動調整される。
 const HAND_CELL_SIZE = 14; 
 const HAND_PADDING = 5;
+
+// グローバル変数：盤面のセルサイズ（動的に計算）
+let BOARD_CELL_SIZE = 30; 
 
 const SHAPES = {
     '1x1': [[1]],
@@ -334,7 +302,6 @@ const SHAPES = {
     'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[1,1]]
 };
 
-/** 変数 */
 let board = [], score = 0, combo = 0;
 let turnsSinceClear = 0, turnsSinceCombo = 0;
 let pieceQueue = [], hand = [null, null, null], keepPiece = null;
@@ -343,7 +310,10 @@ let dragGhost = null;
 let dragOffset = { x: 0, y: 0 };
 let selectedHandIndex = 0; 
 
-document.addEventListener('DOMContentLoaded', initGame);
+document.addEventListener('DOMContentLoaded', () => {
+    initGame();
+    window.addEventListener('resize', resizeBoard);
+});
 
 function initGame() {
     isGameOver = false;
@@ -359,8 +329,56 @@ function initGame() {
     selectedHandIndex = 0;
 
     document.getElementById('game-over').style.display = 'none';
-    createBoardElements();
+    
+    // 初回リサイズ計算
+    resizeBoard();
     updateUI();
+}
+
+/** 盤面サイズ自動調整（重要修正） */
+function resizeBoard() {
+    const wrapper = document.getElementById('board-wrapper');
+    const boardEl = document.getElementById('board');
+    
+    if (!wrapper) return;
+
+    // 親要素のサイズを取得
+    const w = wrapper.clientWidth - 10; // padding分
+    const h = wrapper.clientHeight - 10;
+    
+    // 正方形に収まる最大サイズを計算
+    const size = Math.min(w, h);
+    
+    // 1マスのサイズを計算（隙間gap:2px * 8本分を引く）
+    const gapTotal = (BOARD_SIZE - 1) * 2; 
+    BOARD_CELL_SIZE = Math.floor((size - gapTotal - 10) / BOARD_SIZE);
+    
+    // 最小サイズの保証
+    if (BOARD_CELL_SIZE < 10) BOARD_CELL_SIZE = 10;
+
+    // スタイル適用
+    boardEl.style.gridTemplateColumns = `repeat(${BOARD_SIZE}, ${BOARD_CELL_SIZE}px)`;
+    boardEl.style.gridTemplateRows = `repeat(${BOARD_SIZE}, ${BOARD_CELL_SIZE}px)`;
+    boardEl.style.gap = '2px';
+    boardEl.style.width = 'auto'; 
+    boardEl.style.height = 'auto';
+
+    createBoardElements();
+    updateBoardVisuals();
+}
+
+function createBoardElements() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
+        const c = document.createElement('div');
+        c.className = 'cell'; 
+        c.id = `c-${y}-${x}`;
+        // セルサイズを明示的に指定
+        c.style.width = `${BOARD_CELL_SIZE}px`;
+        c.style.height = `${BOARD_CELL_SIZE}px`;
+        el.appendChild(c);
+    }
 }
 
 /** ロジック */
@@ -406,22 +424,15 @@ function canPlaceAnywhere(matrix) {
 /** 選択機能 */
 function selectHand(index) {
     selectedHandIndex = index;
-    // UI更新（クラス付与のみ）
     [0, 1, 2].forEach(i => {
         const slot = document.getElementById(`hand-${i}`);
-        if(slot) {
-            if (i === index) slot.classList.add('selected');
-            else slot.classList.remove('selected');
-        }
+        if(slot) i === index ? slot.classList.add('selected') : slot.classList.remove('selected');
     });
     const kSlot = document.getElementById('keep-slot');
-    if(kSlot) {
-        if (index === -1) kSlot.classList.add('selected');
-        else kSlot.classList.remove('selected');
-    }
+    if(kSlot) index === -1 ? kSlot.classList.add('selected') : kSlot.classList.remove('selected');
 }
 
-/** ドラッグ開始共通ロジック */
+/** ドラッグロジック */
 function startDragLogic(source, index, clientX, clientY, targetElement) {
     const piece = (source === 'hand') ? hand[index] : keepPiece;
     if (!piece) return;
@@ -431,9 +442,10 @@ function startDragLogic(source, index, clientX, clientY, targetElement) {
     const rect = targetElement.getBoundingClientRect();
     const relativeX = clientX - rect.left;
     const relativeY = clientY - rect.top;
+    
+    // 手札内のセルサイズ(14px)で計算
     const internalX = relativeX - HAND_PADDING;
     const internalY = relativeY - HAND_PADDING;
-    
     const colIndex = Math.floor(internalX / HAND_CELL_SIZE);
     const rowIndex = Math.floor(internalY / HAND_CELL_SIZE);
 
@@ -444,12 +456,10 @@ function startDragLogic(source, index, clientX, clientY, targetElement) {
         offsetCol: Math.max(0, colIndex), 
         offsetRow: Math.max(0, rowIndex)
     };
-
     dragOffset.x = relativeX;
     dragOffset.y = relativeY;
 }
 
-/** PC (Mouse) */
 function handleDragStart(e, source, index) {
     if (isGameOver) { e.preventDefault(); return; }
     startDragLogic(source, index, e.clientX, e.clientY, e.currentTarget);
@@ -483,7 +493,7 @@ function handleDrop(e) {
     attemptPlace(pos.x, pos.y);
 }
 
-/** Mobile (Touch) */
+/* Touch Events */
 function handleTouchStart(e, source, index) {
     if (isGameOver) return;
     e.preventDefault(); 
@@ -545,19 +555,22 @@ function removeDragGhost() {
     dragGhost = null;
 }
 
-/** 共通 */
+/** 共通座標取得 */
 function getBoardCoords(clientX, clientY) {
     const rect = document.getElementById('board').getBoundingClientRect();
     if (clientX < rect.left || clientX > rect.right || 
         clientY < rect.top || clientY > rect.bottom) {
         return { x: -1, y: -1, valid: false };
     }
-    const cellSize = rect.width / BOARD_SIZE;
-    return {
-        x: Math.floor((clientX - rect.left) / cellSize),
-        y: Math.floor((clientY - rect.top) / cellSize),
-        valid: true
-    };
+    // 計算済みのBOARD_CELL_SIZEを使用
+    const x = Math.floor((clientX - rect.left) / (BOARD_CELL_SIZE + 2)); // gap考慮
+    const y = Math.floor((clientY - rect.top) / (BOARD_CELL_SIZE + 2));
+    
+    // インデックス範囲チェック
+    if(x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE) {
+        return { x, y, valid: true };
+    }
+    return { x: -1, y: -1, valid: false };
 }
 
 function updatePreview(boardX, boardY) {
@@ -623,7 +636,6 @@ function executeKeep() {
     checkGameOver();
 }
 
-/** ターン処理 */
 function processTurn() {
     let rows = [], cols = [];
     for(let y=0; y<BOARD_SIZE; y++) if(board[y].every(c => c===1)) rows.push(y);
@@ -647,7 +659,6 @@ function checkGameOver() {
     let canMove = false;
     hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
     if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
-    
     if (!canMove) {
         if (keepPiece === null) return;
         triggerGameOver("置ける場所がありません");
@@ -661,23 +672,21 @@ function triggerGameOver(reason) {
     document.getElementById('game-over').style.display = 'flex';
 }
 
-/** 描画系 */
-function createBoardElements() {
-    const el = document.getElementById('board');
-    el.innerHTML = '';
+/** 盤面のみ更新 */
+function updateBoardVisuals() {
     for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
-        const c = document.createElement('div');
-        c.className = 'cell'; c.id = `c-${y}-${x}`;
-        el.appendChild(c);
+        const cell = document.getElementById(`c-${y}-${x}`);
+        if(cell) {
+            cell.className = 'cell' + (board[y][x] ? ' filled' : '');
+            // サイズ再適用（リサイズ対応）
+            cell.style.width = `${BOARD_CELL_SIZE}px`;
+            cell.style.height = `${BOARD_CELL_SIZE}px`;
+        }
     }
 }
 
 function updateUI() {
-    // 盤面更新
-    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
-        const cell = document.getElementById(`c-${y}-${x}`);
-        if(cell) cell.className = 'cell' + (board[y][x] ? ' filled' : '');
-    }
+    updateBoardVisuals();
     
     document.getElementById('score').innerText = score.toLocaleString();
     document.getElementById('combo').innerText = combo;
@@ -732,13 +741,13 @@ function updateUI() {
         if(kText) kText.style.display = 'block';
     }
 
-    // Next (5個縦並び)
+    // Next
     const nList = document.getElementById('next-list');
     nList.innerHTML = '';
     pieceQueue.slice(0, 5).forEach(p => {
         const box = document.createElement('div');
         box.className = 'next-piece-box';
-        box.appendChild(createPieceElement(p.matrix, 10)); // 少し小さく
+        box.appendChild(createPieceElement(p.matrix, 12)); 
         nList.appendChild(box);
     });
 }
