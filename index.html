@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Score Puzzle 9x9 - Visible Next</title>
+    <style>
+        :root {
+            --bg-color: #2c3e50;
+            --grid-color: #34495e;
+            --cell-empty: #ecf0f1;
+            --cell-filled: #f1c40f; /* 黄色 */
+            --cell-preview: rgba(241, 196, 15, 0.5);
+            --text: #ffffff;
+            --accent: #f1c40f;
+            --danger: #e74c3c;
+            --selected: #e74c3c; /* 選択枠の色 */
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 10px;
+            user-select: none;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        h1 { margin: 5px 0 15px 0; font-size: 1.5rem; }
+
+        .game-container {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        @media (min-width: 700px) {
+            .side-panel {
+                flex-direction: column;
+                width: 140px;
+            }
+        }
+
+        .info-box {
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            flex: 1;
+        }
+        .info-box h2 { margin: 2px 0; font-size: 1.2rem; }
+        .info-box div { font-size: 0.8rem; color: #ccc; }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(9, 34px);
+            grid-template-rows: repeat(9, 34px);
+            gap: 2px;
+            background-color: var(--grid-color);
+            padding: 3px;
+            border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .cell {
+            width: 34px;
+            height: 34px;
+            background-color: var(--cell-empty);
+            border-radius: 3px;
+        }
+        .cell.filled { 
+            background-color: var(--cell-filled);
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        }
+        .cell.drag-preview { background-color: var(--cell-preview) !important; }
+
+        #hand-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            min-height: 90px;
+        }
+
+        .piece-slot {
+            width: 85px;
+            height: 85px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .piece-slot.selected {
+            border-color: var(--selected);
+            background: rgba(231, 76, 60, 0.15);
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.4);
+        }
+        
+        #keep-slot.drag-over {
+            background: rgba(241, 196, 15, 0.2);
+            border-color: var(--accent);
+        }
+
+        .draggable-wrapper {
+            cursor: grab;
+            padding: 10px;
+            touch-action: none;
+        }
+        .draggable-wrapper:active { cursor: grabbing; opacity: 0.5; }
+
+        .drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.9;
+            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
+        }
+
+        .piece-grid {
+            display: grid;
+            gap: 1px;
+            pointer-events: none;
+        }
+
+        .mini-cell { box-sizing: border-box; }
+
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        button {
+            padding: 10px 20px; background: #34495e; color: #fff;
+            border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
+        }
+        button:hover { background: #446cb3; }
+
+        /* NEXTリスト（縦並び・見やすく調整） */
+        #next-list {
+            display: flex;
+            flex-direction: column; /* 縦並び */
+            gap: 8px; /* 間隔を広げる */
+            justify-content: center;
+            align-items: center;
+            padding: 5px 0;
+        }
+        
+        /* NEXT個別のスタイル追加 */
+        .next-piece-box {
+            padding: 5px;
+            background: rgba(0,0,0,0.2); /* 少し暗くして目立たせる */
+            border-radius: 6px;
+            width: 60px; /* 固定幅で見やすく */
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-over {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: none;
+            flex-direction: column; justify-content: center; align-items: center; z-index: 2000;
+        }
+        
+        .danger { color: var(--danger); font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+    <h1>Score Puzzle 9x9</h1>
+
+    <div class="game-container">
+        <div class="side-panel">
+            <div class="info-box">
+                <div>SCORE</div>
+                <h2 id="score" style="color: #2ecc71;">0</h2>
+            </div>
+            <div class="info-box">
+                <div>COMBO</div>
+                <h3 id="combo" style="color: #f1c40f;">0</h3>
+            </div>
+            <div class="info-box" id="turn-box">
+                <div>残り猶予</div>
+                <h2 id="turn-limit">5</h2>
+            </div>
+        </div>
+
+        <div>
+            <div id="board" 
+                 ondragover="handleDragOver(event)" 
+                 ondragleave="handleDragLeave(event)" 
+                 ondrop="handleDrop(event)">
+            </div>
+            
+            <div id="hand-container">
+                <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
+                <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
+                <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
+            </div>
+            
+            <div class="btn-group">
+                <button onclick="rotateSelectedHand()">回転</button>
+                <button onclick="flipSelectedHand()">反転</button>
+            </div>
+            <p style="text-align: center; color: #7f8c8d; font-size: 0.9em; margin-top:10px;">タップで選択 / ドラッグで配置</p>
+        </div>
+
+        <div class="side-panel">
+            <div class="info-box">
+                <div>KEEP</div>
+                <div id="keep-slot" class="piece-slot"
+                     onclick="selectHand(-1)"
+                     ondragover="handleKeepDragOver(event)"
+                     ondragleave="handleKeepDragLeave(event)"
+                     ondrop="handleKeepDrop(event)"
+                     style="margin: 5px auto;">
+                     <span id="keep-text" style="color:gray; font-size:0.8em; position:absolute;">Drop</span>
+                </div>
+            </div>
+
+            <div class="info-box" style="flex: 2;">
+                <div>NEXT</div>
+                <div id="next-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <h1 style="color: #e74c3c;">GAME OVER</h1>
+        <p id="game-over-reason" style="font-size: 1.2em; color:white; margin-bottom: 20px;"></p>
+        <h2 style="color: #f1c40f;">Final Score: <span id="final-score"></span></h2>
+        <button onclick="initGame()" style="background: #2ecc71; padding: 15px 30px; font-size: 1.2em;">RETRY</button>
+    </div>
+
+<script>
+/** 設定 */
+const BOARD_SIZE = 9;
+const MAX_TURNS_WITHOUT_CLEAR = 5;
+const COMBO_TIMEOUT_TURNS = 3;
+const HAND_CELL_SIZE = 16;
+const HAND_PADDING = 10;
+
+const SHAPES = {
+    '1x1': [[1]],
+    '2x2': [[1,1],[1,1]],
+    '3x3': [[1,1,1],[1,1,1],[1,1,1]],
+    'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]],
+    'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]],
+    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[1,1]]
+};
+
+/** 変数 */
+let board = [], score = 0, combo = 0;
+let turnsSinceClear = 0, turnsSinceCombo = 0;
+let pieceQueue = [], hand = [null, null, null], keepPiece = null;
+let isGameOver = false, draggingPieceInfo = null;
+let dragGhost = null;
+let dragOffset = { x: 0, y: 0 };
+let selectedHandIndex = 0; 
+
+document.addEventListener('DOMContentLoaded', initGame);
+
+function initGame() {
+    isGameOver = false;
+    board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+    score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
+    
+    pieceQueue = [];
+    for(let i=0; i<8; i++) pieceQueue.push(generateValidPiece());
+    
+    hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
+    keepPiece = null;
+    draggingPieceInfo = null;
+    selectedHandIndex = 0;
+
+    document.getElementById('game-over').style.display = 'none';
+    createBoardElements();
+    updateUI();
+}
+
+/** ロジック */
+function generateRandomPiece() {
+    const keys = Object.keys(SHAPES);
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    let matrix = SHAPES[key];
+    const rots = Math.floor(Math.random() * 4);
+    for(let i=0; i<rots; i++) matrix = rotateMatrix(matrix);
+    if(Math.random() > 0.5) matrix = flipMatrix(matrix);
+    return { matrix: matrix };
+}
+
+function generateValidPiece() {
+    for(let i=0; i<10; i++) {
+        let p = generateRandomPiece();
+        if (canPlaceAnywhere(p.matrix)) return p;
+    }
+    return { matrix: [[1]] };
+}
+
+function rotateMatrix(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
+function flipMatrix(m) { return m.map(row => [...row].reverse()); }
+
+function canPlace(matrix, startX, startY) {
+    for (let r = 0; r < matrix.length; r++) {
+        for (let c = 0; c < matrix[0].length; c++) {
+            if (matrix[r][c] === 1) {
+                let x = startX + c, y = startY + r;
+                if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return false;
+                if (board[y][x] === 1) return false;
+            }
+        }
+    }
+    return true;
+}
+
+function canPlaceAnywhere(matrix) {
+    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) if(canPlace(matrix, x, y)) return true;
+    return false;
+}
+
+/** 選択機能 */
+function selectHand(index) {
+    selectedHandIndex = index;
+    // UIを更新（DOMを破壊しないようにクラス操作のみ）
+    [0, 1, 2].forEach(i => {
+        const slot = document.getElementById(`hand-${i}`);
+        if(slot) {
+            if (i === index) slot.classList.add('selected');
+            else slot.classList.remove('selected');
+        }
+    });
+    const kSlot = document.getElementById('keep-slot');
+    if(kSlot) {
+        if (index === -1) kSlot.classList.add('selected');
+        else kSlot.classList.remove('selected');
+    }
+}
+
+/** ドラッグ開始共通ロジック */
+function startDragLogic(source, index, clientX, clientY, targetElement) {
+    const piece = (source === 'hand') ? hand[index] : keepPiece;
+    if (!piece) return;
+
+    selectHand(source === 'hand' ? index : -1);
+
+    const rect = targetElement.getBoundingClientRect();
+    const relativeX = clientX - rect.left;
+    const relativeY = clientY - rect.top;
+    const internalX = relativeX - HAND_PADDING;
+    const internalY = relativeY - HAND_PADDING;
+    
+    const colIndex = Math.floor(internalX / HAND_CELL_SIZE);
+    const rowIndex = Math.floor(internalY / HAND_CELL_SIZE);
+
+    draggingPieceInfo = {
+        matrix: piece.matrix,
+        source: source,
+        index: index,
+        offsetCol: Math.max(0, colIndex), 
+        offsetRow: Math.max(0, rowIndex)
+    };
+
+    dragOffset.x = relativeX;
+    dragOffset.y = relativeY;
+}
+
+/** PC (Mouse) Event Handlers */
+function handleDragStart(e, source, index) {
+    if (isGameOver) { e.preventDefault(); return; }
+    startDragLogic(source, index, e.clientX, e.clientY, e.currentTarget);
+    e.dataTransfer.setData('text/plain', '');
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => { if(e.target) e.target.classList.add('dragging'); }, 0);
+}
+
+function handleDragEnd(e) {
+    if(e.target) e.target.classList.remove('dragging');
+    draggingPieceInfo = null;
+    clearPreview();
+    selectHand(selectedHandIndex);
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggingPieceInfo) return;
+    const pos = getBoardCoords(e.clientX, e.clientY);
+    updatePreview(pos.x, pos.y);
+}
+
+function handleDragLeave(e) { clearPreview(); }
+
+function handleDrop(e) {
+    e.preventDefault();
+    clearPreview();
+    if (isGameOver || !draggingPieceInfo) return;
+    const pos = getBoardCoords(e.clientX, e.clientY);
+    attemptPlace(pos.x, pos.y);
+}
+
+/** Mobile (Touch) Event Handlers */
+function handleTouchStart(e, source, index) {
+    if (isGameOver) return;
+    e.preventDefault(); 
+    const touch = e.touches[0];
+    startDragLogic(source, index, touch.clientX, touch.clientY, e.currentTarget);
+    if (draggingPieceInfo) createDragGhost(source, index, touch.clientX, touch.clientY);
+}
+
+function handleTouchMove(e) {
+    if (!draggingPieceInfo || !dragGhost) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    dragGhost.style.left = (touch.clientX - dragOffset.x) + 'px';
+    dragGhost.style.top = (touch.clientY - dragOffset.y) + 'px';
+    const pos = getBoardCoords(touch.clientX, touch.clientY);
+    if (pos.valid) updatePreview(pos.x, pos.y);
+    else clearPreview();
+}
+
+function handleTouchEnd(e) {
+    if (!draggingPieceInfo) return;
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const pos = getBoardCoords(touch.clientX, touch.clientY);
+
+    if (pos.valid) {
+        attemptPlace(pos.x, pos.y);
+    } else if (draggingPieceInfo.source === 'hand') {
+        const keepRect = document.getElementById('keep-slot').getBoundingClientRect();
+        if (touch.clientX >= keepRect.left && touch.clientX <= keepRect.right &&
+            touch.clientY >= keepRect.top && touch.clientY <= keepRect.bottom) {
+            executeKeep();
+        }
+    }
+    removeDragGhost();
+    draggingPieceInfo = null;
+    clearPreview();
+    selectHand(selectedHandIndex);
+}
+
+function createDragGhost(source, index, x, y) {
+    removeDragGhost();
+    const piece = (source === 'hand') ? hand[index] : keepPiece;
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'draggable-wrapper';
+    wrapper.style.padding = HAND_PADDING + 'px';
+    wrapper.appendChild(createPieceElement(piece.matrix, HAND_CELL_SIZE));
+    ghost.appendChild(wrapper);
+    document.body.appendChild(ghost);
+    ghost.style.left = (x - dragOffset.x) + 'px';
+    ghost.style.top = (y - dragOffset.y) + 'px';
+    dragGhost = ghost;
+}
+
+function removeDragGhost() {
+    if (dragGhost && dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
+    dragGhost = null;
+}
+
+/** 共通 */
+function getBoardCoords(clientX, clientY) {
+    const rect = document.getElementById('board').getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || 
+        clientY < rect.top || clientY > rect.bottom) {
+        return { x: -1, y: -1, valid: false };
+    }
+    const cellSize = rect.width / BOARD_SIZE;
+    return {
+        x: Math.floor((clientX - rect.left) / cellSize),
+        y: Math.floor((clientY - rect.top) / cellSize),
+        valid: true
+    };
+}
+
+function updatePreview(boardX, boardY) {
+    const targetX = boardX - draggingPieceInfo.offsetCol;
+    const targetY = boardY - draggingPieceInfo.offsetRow;
+    clearPreview();
+    if (canPlace(draggingPieceInfo.matrix, targetX, targetY)) {
+        drawPreview(draggingPieceInfo.matrix, targetX, targetY);
+    }
+}
+
+function attemptPlace(boardX, boardY) {
+    const targetX = boardX - draggingPieceInfo.offsetCol;
+    const targetY = boardY - draggingPieceInfo.offsetRow;
+
+    if (canPlace(draggingPieceInfo.matrix, targetX, targetY)) {
+        const matrix = draggingPieceInfo.matrix;
+        for (let r = 0; r < matrix.length; r++) {
+            for (let c = 0; c < matrix[0].length; c++) {
+                if (matrix[r][c] === 1) board[targetY + r][targetX + c] = 1;
+            }
+        }
+        if (draggingPieceInfo.source === 'hand') {
+            hand[draggingPieceInfo.index] = pieceQueue.shift();
+            pieceQueue.push(generateValidPiece());
+        } else if (draggingPieceInfo.source === 'keep') {
+            keepPiece = null;
+        }
+        processTurn();
+        updateUI();
+    }
+}
+
+function handleKeepDragOver(e) {
+    e.preventDefault();
+    if (draggingPieceInfo && draggingPieceInfo.source === 'hand') {
+        e.dataTransfer.dropEffect = 'move';
+        document.getElementById('keep-slot').classList.add('drag-over');
+    }
+}
+function handleKeepDragLeave(e) { document.getElementById('keep-slot').classList.remove('drag-over'); }
+function handleKeepDrop(e) {
+    e.preventDefault();
+    document.getElementById('keep-slot').classList.remove('drag-over');
+    if (isGameOver || !draggingPieceInfo || draggingPieceInfo.source !== 'hand') return;
+    executeKeep();
+    draggingPieceInfo = null;
+}
+
+function executeKeep() {
+    const idx = draggingPieceInfo.index;
+    const target = hand[idx];
+    if (!keepPiece) {
+        keepPiece = target;
+        hand[idx] = pieceQueue.shift();
+        pieceQueue.push(generateValidPiece());
+    } else {
+        const temp = keepPiece;
+        keepPiece = target;
+        hand[idx] = temp;
+    }
+    updateUI();
+    checkGameOver();
+}
+
+/** ターン処理 */
+function processTurn() {
+    let rows = [], cols = [];
+    for(let y=0; y<BOARD_SIZE; y++) if(board[y].every(c => c===1)) rows.push(y);
+    for(let x=0; x<BOARD_SIZE; x++) if(board.map(r=>r[x]).every(c => c===1)) cols.push(x);
+
+    if (rows.length > 0 || cols.length > 0) {
+        rows.forEach(y => board[y].fill(0));
+        cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
+        combo = (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) ? combo + 1 : 1;
+        turnsSinceCombo = 0; turnsSinceClear = 0;
+        let count = rows.length + cols.length;
+        score += Math.floor(count * BOARD_SIZE * 100 * (1 + (combo-1)*0.5));
+    } else {
+        turnsSinceClear++; turnsSinceCombo++;
+    }
+    checkGameOver();
+}
+
+function checkGameOver() {
+    if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) { triggerGameOver("タイムアップ！(5ターン経過)"); return; }
+    let canMove = false;
+    hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
+    if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
+    
+    if (!canMove) {
+        if (keepPiece === null) return;
+        triggerGameOver("置ける場所がありません");
+    }
+}
+
+function triggerGameOver(reason) {
+    isGameOver = true;
+    document.getElementById('final-score').innerText = score.toLocaleString();
+    document.getElementById('game-over-reason').innerText = reason;
+    document.getElementById('game-over').style.display = 'flex';
+}
+
+/** 描画系 */
+function createBoardElements() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
+        const c = document.createElement('div');
+        c.className = 'cell'; c.id = `c-${y}-${x}`;
+        el.appendChild(c);
+    }
+}
+
+function updateUI() {
+    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
+        const cell = document.getElementById(`c-${y}-${x}`);
+        if(cell) cell.className = 'cell' + (board[y][x] ? ' filled' : '');
+    }
+    
+    document.getElementById('score').innerText = score.toLocaleString();
+    document.getElementById('combo').innerText = combo;
+    const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
+    const tBox = document.getElementById('turn-box');
+    document.getElementById('turn-limit').innerText = limit;
+    if(limit <= 2) tBox.classList.add('danger'); else tBox.classList.remove('danger');
+
+    // 手札
+    hand.forEach((p, i) => {
+        const slot = document.getElementById(`hand-${i}`);
+        slot.innerHTML = '';
+        if (i === selectedHandIndex) slot.classList.add('selected');
+        else slot.classList.remove('selected');
+
+        if (p) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'draggable-wrapper';
+            wrapper.draggable = true;
+            wrapper.ondragstart = (e) => handleDragStart(e, 'hand', i);
+            wrapper.ondragend = handleDragEnd;
+            wrapper.ontouchstart = (e) => handleTouchStart(e, 'hand', i);
+            wrapper.ontouchmove = handleTouchMove;
+            wrapper.ontouchend = handleTouchEnd;
+            wrapper.appendChild(createPieceElement(p.matrix, HAND_CELL_SIZE));
+            slot.appendChild(wrapper);
+        }
+    });
+
+    // Keep
+    const kSlot = document.getElementById('keep-slot');
+    const kText = document.getElementById('keep-text');
+    kSlot.innerHTML = '';
+    if (selectedHandIndex === -1) kSlot.classList.add('selected');
+    else kSlot.classList.remove('selected');
+
+    if(kText) kSlot.appendChild(kText);
+
+    if (keepPiece) {
+        if(kText) kText.style.display = 'none';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'draggable-wrapper';
+        wrapper.draggable = true;
+        wrapper.ondragstart = (e) => handleDragStart(e, 'keep', 0);
+        wrapper.ondragend = handleDragEnd;
+        wrapper.ontouchstart = (e) => handleTouchStart(e, 'keep', 0);
+        wrapper.ontouchmove = handleTouchMove;
+        wrapper.ontouchend = handleTouchEnd;
+        wrapper.appendChild(createPieceElement(keepPiece.matrix, HAND_CELL_SIZE));
+        kSlot.appendChild(wrapper);
+    } else {
+        if(kText) kText.style.display = 'block';
+    }
+
+    // Next (5個縦並び・大きく表示)
+    const nList = document.getElementById('next-list');
+    nList.innerHTML = '';
+    pieceQueue.slice(0, 5).forEach(p => {
+        const box = document.createElement('div');
+        box.className = 'next-piece-box';
+        // 見やすくするためにサイズを12pxに拡大
+        box.appendChild(createPieceElement(p.matrix, 12)); 
+        nList.appendChild(box);
+    });
+}
+
+function createPieceElement(matrix, cellSize) {
+    const h = matrix.length;
+    const w = matrix[0].length;
+    const grid = document.createElement('div');
+    grid.className = 'piece-grid';
+    grid.style.width = (w * cellSize) + 'px';
+    grid.style.height = (h * cellSize) + 'px';
+    grid.style.gridTemplateColumns = `repeat(${w}, ${cellSize}px)`;
+    grid.style.gridTemplateRows = `repeat(${h}, ${cellSize}px)`;
+    
+    for(let r=0; r<h; r++) for(let c=0; c<w; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'mini-cell';
+        cell.style.width = cellSize + 'px';
+        cell.style.height = cellSize + 'px';
+        if (matrix[r][c] === 1) {
+            cell.style.backgroundColor = '#f1c40f';
+            cell.style.border = '1px solid rgba(0,0,0,0.2)';
+            cell.style.borderRadius = '2px';
+        } else {
+            cell.style.backgroundColor = 'transparent';
+        }
+        grid.appendChild(cell);
+    }
+    return grid;
+}
+
+function drawPreview(matrix, sx, sy) {
+    for(let r=0; r<matrix.length; r++) for(let c=0; c<matrix[0].length; c++) {
+        if(matrix[r][c] === 1) {
+            const cell = document.getElementById(`c-${sy+r}-${sx+c}`);
+            if(cell) cell.classList.add('drag-preview');
+        }
+    }
+}
+function clearPreview() {
+    document.querySelectorAll('.drag-preview').forEach(e => e.classList.remove('drag-preview'));
+}
+
+function rotateSelectedHand() {
+    let target = null;
+    if (selectedHandIndex === -1) target = keepPiece;
+    else target = hand[selectedHandIndex];
+
+    if(target) {
+        target.matrix = rotateMatrix(target.matrix);
+        updateUI();
+    }
+}
+
+function flipSelectedHand() {
+    let target = null;
+    if (selectedHandIndex === -1) target = keepPiece;
+    else target = hand[selectedHandIndex];
+
+    if(target) {
+        target.matrix = flipMatrix(target.matrix);
+        updateUI();
+    }
+}
+</script>
+</body>
+</html>
