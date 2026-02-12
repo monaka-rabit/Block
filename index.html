@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Score Puzzle 7x7 - Dynamic Life</title>
+    <title>Score Puzzle 7x7 - Result</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -136,6 +136,23 @@
             background: rgba(0,0,0,0.9); display: none;
             flex-direction: column; justify-content: center; align-items: center; z-index: 2000;
         }
+        /* リザルト用カードデザイン */
+        .result-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+        }
+        .result-label { font-size: 0.9rem; color: #bdc3c7; margin-top: 10px; }
+        .result-value { font-size: 2rem; font-weight: bold; line-height: 1.2; }
+        .result-score { color: #f1c40f; font-size: 2.5rem; }
+        .result-lines { color: #3498db; }
+
         .danger { color: var(--danger) !important; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
     </style>
@@ -207,14 +224,22 @@
     </div>
 
     <div id="game-over">
-        <h1 style="color: #e74c3c;">GAME OVER</h1>
-        <p id="game-over-reason" style="font-size: 1.2rem; color: #ecf0f1; margin-bottom: 20px;"></p>
-        <h2 style="color: #f1c40f;">Final Score: <span id="final-score"></span></h2>
-        <button onclick="initGame()" style="background: #2ecc71; border:none; padding: 15px 40px; font-size: 1.2rem;">RETRY</button>
+        <h1 style="color: #e74c3c; margin-bottom: 10px;">GAME OVER</h1>
+        <p id="game-over-reason" style="font-size: 1rem; color: #ecf0f1; margin-bottom: 20px;"></p>
+        
+        <div class="result-card">
+            <div class="result-label">LINES</div>
+            <div id="final-lines" class="result-value result-lines">0</div>
+            
+            <div class="result-label">SCORE</div>
+            <div id="final-score" class="result-value result-score">0</div>
+        </div>
+
+        <button onclick="initGame()" style="background: #2ecc71; border:none; padding: 15px 40px; font-size: 1.2rem; border-radius: 30px; cursor: pointer;">RETRY</button>
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Dynamic Life) */
+/** * Score Puzzle 7x7 Logic (Result Screen) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
@@ -225,14 +250,13 @@ const HARD_UNLOCK_THRESHOLD = 100;
 // 【変更点】寿命計算用
 const INITIAL_LIFE_LIMIT = 10;
 const MIN_LIFE_LIMIT = 5;
-const LIFE_DECREASE_STEP = 20; // 20ラインごとに減少
+const LIFE_DECREASE_STEP = 20;
 
 const BASIC_SHAPES = {
     '1x1': [[1]],
     'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]], 
     'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
     'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
-    // 最初から出る難しい形状
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
     'Corner': [[1,1,1],[1,0,0],[1,0,0]] 
@@ -283,11 +307,10 @@ function initGame() {
     updateUI();
 }
 
-// 【変更】現在の最大寿命を計算する関数
 function getCurrentMaxLife() {
-    const decrease = Math.floor(totalLines / LIFE_DECREASE_STEP); // 20ラインごとに1減る
+    const decrease = Math.floor(totalLines / LIFE_DECREASE_STEP);
     const currentLife = INITIAL_LIFE_LIMIT - decrease;
-    return Math.max(MIN_LIFE_LIMIT, currentLife); // 最低5を下回らない
+    return Math.max(MIN_LIFE_LIMIT, currentLife);
 }
 
 function generateRandomPiece() {
@@ -315,7 +338,6 @@ function generateRandomPiece() {
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
     
-    // 現在の最大寿命を適用
     return { matrix: matrix, life: getCurrentMaxLife() };
 }
 
@@ -324,7 +346,6 @@ function generateValidPiece() {
         let p = generateRandomPiece();
         if (canPlaceAnywhere(p.matrix)) return p;
     }
-    // 救済の1x1も、現在の寿命で生成
     return { matrix: [[1]], life: getCurrentMaxLife() };
 }
 
@@ -572,6 +593,7 @@ function checkGameOver() {
 function triggerGameOver(reason) {
     isGameOver = true;
     document.getElementById('final-score').innerText = score.toLocaleString();
+    document.getElementById('final-lines').innerText = totalLines;
     document.getElementById('game-over-reason').innerText = reason;
     document.getElementById('game-over').style.display = 'flex';
 }
