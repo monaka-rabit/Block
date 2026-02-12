@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Smooth Fade</title>
+    <title>Score Puzzle 7x7 - Hard Mode</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -98,14 +98,12 @@
             height: var(--cell-size);
             background-color: var(--cell-empty);
             border-radius: 2px;
-            /* 色の変化を少し滑らかにするが、判定更新時は即時反映されるように短めに */
             transition: background-color 0.1s; 
         }
         .cell.filled { background-color: var(--cell-filled); box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
 
-        /* --- 消去アニメーション (修正版) --- */
-        /* マス自体を消すのではなく、色を「白→空色」に変化させる */
+        /* --- 消去アニメーション --- */
         .cell.clearing {
             animation: flashFade 0.4s ease-out forwards;
             z-index: 10;
@@ -113,13 +111,13 @@
 
         @keyframes flashFade {
             0% {
-                background-color: #fff; /* 一瞬白く光る */
-                transform: scale(1.05); /* ほんの少し膨らむ */
+                background-color: #fff;
+                transform: scale(1.05);
                 box-shadow: 0 0 10px #fff;
             }
             100% {
-                background-color: var(--cell-empty); /* 最終的に「空」の色になる */
-                transform: scale(1); /* サイズは元通り */
+                background-color: var(--cell-empty);
+                transform: scale(1);
                 box-shadow: none;
             }
         }
@@ -282,21 +280,34 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Smooth Fade Fix) */
+/** * Score Puzzle 7x7 Logic (Hard Mode) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 
+// 【調整】難易度アップのための形状追加
 const SHAPES = {
+    // Basic
     '1x1': [[1]],
-    '2x2': [[1,1],[1,1]],
-    '3x3': [[1,1,1],[1,1,1],[1,1,1]],
-    'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]],
-    'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
-    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
-    'O': [[1]]
+    'I2': [[1,1]], 
+    'I3': [[1,1,1]], 
+    'I4': [[1,1,1,1]], 
+    'I5': [[1,1,1,1,1]], // 長い棒は7x7だとかなり邪魔
+    'L2': [[1,0],[1,1]], 
+    'L3': [[1,0],[1,0],[1,1]], 
+    'J3': [[0,1],[0,1],[1,1]],
+    'T': [[1,1,1],[0,1,0]], 
+    'Z': [[1,1,0],[0,1,1]], 
+    'S': [[0,1,1],[1,1,0]],
+    
+    // Hard Shapes (New!)
+    '2x2': [[1,1],[1,1]], // 基本だが意外と場所を取る
+    '3x3': [[1,1,1],[1,1,1],[1,1,1]], // 9マス埋まる超巨大ブロック
+    'Plus': [[0,1,0],[1,1,1],[0,1,0]], // 十字
+    'U': [[1,0,1],[1,0,1],[1,1,1]], // U字
+    'Corner': [[1,1,1],[1,0,0],[1,0,0]] // 大きな角
 };
 
 let board = [];
@@ -323,9 +334,9 @@ function initGame() {
     score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
     
     pieceQueue = [];
-    for(let i=0; i<8; i++) pieceQueue.push(generateValidPiece());
+    for(let i=0; i<8; i++) pieceQueue.push(generateRandomPiece()); // 救済なし
     hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
-    while(pieceQueue.length < 8) pieceQueue.push(generateValidPiece());
+    while(pieceQueue.length < 8) pieceQueue.push(generateRandomPiece());
 
     keepPiece = null;
     selectedHandIndex = 0;
@@ -336,16 +347,22 @@ function initGame() {
     updateUI();
 }
 
+// 【調整】出現確率の調整（小さいピースを激レアに）
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
     let key;
-    for (let i = 0; i < 2; i++) {
+    
+    // 試行回数を増やして、小さいピース(1x1, I2)が出たら再抽選する確率を上げる
+    // これにより、ほとんどの場合で中～大型のピースが出るようになる
+    for (let i = 0; i < 4; i++) {
         key = keys[Math.floor(Math.random() * keys.length)];
-        if (key === '1x1' || key === 'I2' || key === 'O') {
-            if (Math.random() > 0.5) continue; 
+        // 1x1, I2は 80%の確率で再抽選（かなり出にくくする）
+        if (key === '1x1' || key === 'I2') {
+            if (Math.random() > 0.2) continue; 
         }
         break; 
     }
+    
     let matrix = SHAPES[key];
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
@@ -353,12 +370,11 @@ function generateRandomPiece() {
     return { matrix: matrix };
 }
 
+// 【重要】「置けるピースを保証する」関数を廃止し、完全ランダム生成を使用する
 function generateValidPiece() {
-    for(let i=0; i<15; i++) {
-        let p = generateRandomPiece();
-        if (canPlaceAnywhere(p.matrix)) return p;
-    }
-    return { matrix: [[1]] };
+    // 以前のロジック：何回も試行して置けるものを探す -> 廃止
+    // 新しいロジック：容赦なくランダムなピースを返す
+    return generateRandomPiece();
 }
 
 function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
@@ -474,7 +490,8 @@ function attemptPlace(bx, by) {
         }
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
-            pieceQueue.push(generateValidPiece());
+            // ランダム生成（救済なし）
+            pieceQueue.push(generateRandomPiece());
         } else {
             keepPiece = null;
         }
@@ -490,7 +507,7 @@ function executeKeep() {
     if (!keepPiece) {
         keepPiece = target;
         hand[idx] = pieceQueue.shift();
-        pieceQueue.push(generateValidPiece());
+        pieceQueue.push(generateRandomPiece());
     } else {
         const tmp = keepPiece;
         keepPiece = target;
@@ -519,7 +536,6 @@ function processTurn() {
             rows.forEach(y => board[y].fill(0));
             cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
             
-            // アニメーションクラスを削除し、マスの状態をリセット
             document.querySelectorAll('.clearing').forEach(el => el.classList.remove('clearing'));
 
             if (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) combo++;
