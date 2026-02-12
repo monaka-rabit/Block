@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Fair Hard</title>
+    <title>Score Puzzle 7x7 - 100 Lines</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -46,11 +46,11 @@
             max-width: 500px;
         }
 
-        /* --- 上部パネル --- */
+        /* --- 上部パネル (4列) --- */
         .top-panels {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 5px;
             width: var(--board-size);
         }
 
@@ -65,12 +65,12 @@
             justify-content: center;
             height: 50px;
         }
-        .info-box .label { font-size: 0.7rem; color: #bdc3c7; margin-bottom: 2px; }
-        .info-box .value { font-size: 1.1rem; font-weight: bold; margin: 0; }
+        .info-box .label { font-size: 0.6rem; color: #bdc3c7; margin-bottom: 2px; }
+        .info-box .value { font-size: 1.0rem; font-weight: bold; margin: 0; }
 
         #keep-slot {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             margin: 0 auto;
             border: 1px dashed #7f8c8d;
             border-radius: 4px;
@@ -243,9 +243,13 @@
                 <div class="value" id="turn-limit">5</div>
             </div>
             <div class="info-box">
+                <div class="label">LINES</div>
+                <div class="value" id="line-count" style="color: #3498db;">0</div>
+            </div>
+            <div class="info-box">
                 <div class="label">KEEP</div>
                 <div id="keep-slot" onclick="selectHand(-1)">
-                    <span id="keep-text" style="font-size: 0.6rem; color: #7f8c8d;">TAP</span>
+                    <span id="keep-text" style="font-size: 0.5rem; color: #7f8c8d;">TAP</span>
                 </div>
             </div>
         </div>
@@ -280,29 +284,25 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Fair Hard) */
+/** * Score Puzzle 7x7 Logic (100 Lines) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 
-// 基本的には難しい形状が多い
-const SHAPES = {
-    // Basic
+// 【変更点】100ライン消去で解禁
+const HARD_UNLOCK_THRESHOLD = 100;
+
+const BASIC_SHAPES = {
     '1x1': [[1]],
-    'I2': [[1,1]], 
-    'I3': [[1,1,1]], 
-    'I4': [[1,1,1,1]], 
-    'I5': [[1,1,1,1,1]], 
-    'L2': [[1,0],[1,1]], 
-    'L3': [[1,0],[1,0],[1,1]], 
-    'J3': [[0,1],[0,1],[1,1]],
-    'T': [[1,1,1],[0,1,0]], 
-    'Z': [[1,1,0],[0,1,1]], 
-    'S': [[0,1,1],[1,1,0]],
-    
-    // Hard Shapes
+    'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]], 
+    'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
+    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]]
+};
+
+// 難しい形状 (100ライン消去後に解禁)
+const HARD_SHAPES = {
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
     'Plus': [[0,1,0],[1,1,1],[0,1,0]], 
@@ -315,6 +315,7 @@ let score = 0;
 let combo = 0;
 let turnsSinceClear = 0;
 let turnsSinceCombo = 0;
+let totalLines = 0; // 消去したラインの総数
 let pieceQueue = [];
 let hand = [null, null, null];
 let keepPiece = null;
@@ -332,9 +333,9 @@ function initGame() {
     isAnimating = false;
     board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
     score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
+    totalLines = 0;
     
     pieceQueue = [];
-    // 初期手札は確実に置けるものを生成（ゲーム開始時の即死防止）
     for(let i=0; i<8; i++) pieceQueue.push(generateValidPiece());
     
     hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
@@ -349,37 +350,43 @@ function initGame() {
     updateUI();
 }
 
-// 難易度高めのランダム生成
 function generateRandomPiece() {
-    const keys = Object.keys(SHAPES);
-    let key;
+    let pool = Object.keys(BASIC_SHAPES);
     
-    // 1x1などの小さいピースは出にくくする（基本はハードモード）
+    // 100ライン以上消去していたら、難しい形状を混ぜる
+    if (totalLines >= HARD_UNLOCK_THRESHOLD) {
+        pool = pool.concat(Object.keys(HARD_SHAPES));
+    }
+
+    let key;
+    // 小さいピースの出現率を下げる
     for (let i = 0; i < 4; i++) {
-        key = keys[Math.floor(Math.random() * keys.length)];
+        key = pool[Math.floor(Math.random() * pool.length)];
         if (key === '1x1' || key === 'I2') {
             if (Math.random() > 0.2) continue; 
         }
         break; 
     }
     
-    let matrix = SHAPES[key];
+    let matrix;
+    if (BASIC_SHAPES[key]) matrix = BASIC_SHAPES[key];
+    else matrix = HARD_SHAPES[key];
+    
+    // コピーして使用(参照渡し回避)
+    matrix = JSON.parse(JSON.stringify(matrix));
+
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
     return { matrix: matrix };
 }
 
-// 【安全装置】現在の盤面に置けるピースを保証する
-// 盤面が広い時は巨大ピースが出やすいが、狭くなると小さいピースが選ばれるようになる
+// 安全装置付き生成
 function generateValidPiece() {
     for (let i = 0; i < 50; i++) {
         let p = generateRandomPiece();
         if (canPlaceAnywhere(p.matrix)) return p;
     }
-    // 50回試行しても置ける巨大ピースがない場合、
-    // 最終手段として「1x1」を返す（これなら1マスでも空いていれば置ける）
-    // これで「理不尽な死」は防げる
     return { matrix: [[1]] };
 }
 
@@ -496,7 +503,6 @@ function attemptPlace(bx, by) {
         }
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
-            // ここで安全装置付きの生成を行う
             pieceQueue.push(generateValidPiece());
         } else {
             keepPiece = null;
@@ -550,8 +556,11 @@ function processTurn() {
             turnsSinceCombo = 0;
             turnsSinceClear = 0;
             
-            const clearedCount = rows.length + cols.length;
-            const baseScore = clearedCount * 100 * BOARD_SIZE;
+            // ライン数を加算
+            const linesCleared = rows.length + cols.length;
+            totalLines += linesCleared;
+            
+            const baseScore = linesCleared * 100 * BOARD_SIZE;
             score += Math.floor(baseScore * (1 + (combo - 1) * 0.5));
             
             isAnimating = false;
@@ -629,6 +638,7 @@ function updateUI() {
         }
     }
     document.getElementById('score').innerText = score.toLocaleString();
+    document.getElementById('line-count').innerText = totalLines; // 消去ライン数表示
     
     const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
     const displayLimit = Math.max(0, limit);
@@ -656,7 +666,6 @@ function updateUI() {
     const nList = document.getElementById('next-list');
     nList.innerHTML = '';
     
-    // 表示数を3に変更
     pieceQueue.slice(0, 3).forEach((p, index) => {
         const item = document.createElement('div');
         item.className = 'next-item' + (index === 0 ? ' imminent' : '');
