@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Piece Life</title>
+    <title>Score Puzzle 7x7 - Fixed Layout</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -170,28 +170,37 @@
         /* --- 手札 --- */
         #hand-container {
             display: flex;
-            gap: 10px;
-            justify-content: center;
-            width: 100%;
+            gap: 5px; /* 間隔を調整 */
+            justify-content: space-between; /* 均等配置 */
+            width: var(--board-size); /* 盤面と同じ幅に固定 */
             margin-top: 5px;
         }
+        
+        /* 手札のラッパー（幅を固定してズレを防ぐ） */
         .piece-slot-wrapper {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 2px;
+            width: 32%; /* 3つ並ぶので約1/3 */
+            position: relative;
         }
+
+        /* 寿命表示（高さを固定してガタつきを防ぐ） */
         .piece-life {
             font-size: 0.7rem;
             color: #bdc3c7;
             font-weight: bold;
+            height: 1.2em; /* 高さ固定 */
+            line-height: 1.2em;
+            visibility: visible;
         }
-        /* 寿命が少ない時の警告色 */
+        .piece-life.empty { visibility: hidden; } /* 文字がない時は隠すが場所は取る */
         .piece-life.danger { color: #e74c3c; animation: blink 1s infinite; }
 
         .piece-slot {
-            width: calc(var(--board-size) / 3.5);
-            height: calc(var(--board-size) / 3.5);
+            width: 100%; /* 親に合わせて伸縮 */
+            aspect-ratio: 1; /* 正方形を維持 */
             background: rgba(0, 0, 0, 0.2);
             border: 2px solid rgba(255,255,255,0.1);
             border-radius: 8px;
@@ -307,14 +316,14 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Piece Life Limit) */
+/** * Score Puzzle 7x7 Logic (Fixed Layout) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 const HARD_UNLOCK_THRESHOLD = 100;
-const PIECE_LIFE_LIMIT = 10; // 各ピースの寿命
+const PIECE_LIFE_LIMIT = 10; 
 
 const BASIC_SHAPES = {
     '1x1': [[1]],
@@ -338,7 +347,7 @@ let turnsSinceClear = 0;
 let turnsSinceCombo = 0;
 let totalLines = 0;
 let pieceQueue = [];
-let hand = [null, null, null]; // { matrix:[], life:10 } のオブジェクトが入る
+let hand = [null, null, null]; 
 let keepPiece = null;
 let isGameOver = false;
 let isAnimating = false;
@@ -396,7 +405,6 @@ function generateRandomPiece() {
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
     
-    // ピース生成時に寿命(life)を付与
     return { matrix: matrix, life: PIECE_LIFE_LIMIT };
 }
 
@@ -520,7 +528,6 @@ function attemptPlace(bx, by) {
             if (m[r][c] === 1) board[ty + r][tx + c] = 1;
         }
         
-        // ピースを消費して補充
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
             pieceQueue.push(generateValidPiece());
@@ -528,9 +535,7 @@ function attemptPlace(bx, by) {
             keepPiece = null;
         }
 
-        // ここでターン経過処理 (手札の寿命減少)
         decreasePieceLife();
-        
         processTurn();
         updateUI();
     }
@@ -553,15 +558,12 @@ function executeKeep() {
     checkGameOver();
 }
 
-// 寿命を減らす処理
 function decreasePieceLife() {
     hand.forEach((p, i) => {
-        if (p && i !== draggingPieceInfo?.index) { // 今置いた場所は補充されるので除外
+        if (p && i !== draggingPieceInfo?.index) { 
             p.life--;
         }
     });
-    // Keepの寿命も減らす？ ルール次第だが、今回は「手札」が対象なのでKeepは対象外とするか、
-    // あるいはKeepも対象にするならここで減らす。今回は「選択できる3つのブロック」という指定なので手札のみ。
 }
 
 function processTurn() {
@@ -612,11 +614,7 @@ function processTurn() {
 
 function consumeTurnAction() {
     if (isGameOver || isAnimating) return;
-    
-    // 回転・反転も1ターンとみなすなら寿命を減らすべきか？
-    // 指定では「10ターン以内に置かないと」なので、回転操作も時間経過とみなして減らす
     decreasePieceLife();
-    
     turnsSinceClear++; 
     turnsSinceCombo++;
     checkGameOver(); 
@@ -640,21 +638,16 @@ function flipSelectedHand() {
 }
 
 function checkGameOver() {
-    // 1. LIMIT (消去なし制限)
     if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) {
         triggerGameOver("タイムアップ (5ターン消去なし)");
         return;
     }
-    
-    // 2. Piece Life (手札の寿命切れ)
     for(let i=0; i<3; i++) {
         if(hand[i] && hand[i].life <= 0) {
             triggerGameOver("ブロックの寿命が尽きました");
             return;
         }
     }
-
-    // 3. 配置不可
     let canMove = false;
     hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
     if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
@@ -697,7 +690,6 @@ function updateUI() {
     if(displayLimit <= 2) document.getElementById('turn-box').classList.add('danger');
     else document.getElementById('turn-box').classList.remove('danger');
 
-    // 手札と寿命の表示更新
     hand.forEach((p, i) => {
         const slot = document.getElementById(`hand-${i}`);
         const lifeLabel = document.getElementById(`life-${i}`);
@@ -708,12 +700,14 @@ function updateUI() {
 
         if (p) {
             lifeLabel.innerText = "あと" + p.life;
+            lifeLabel.classList.remove('empty');
             if(p.life <= 3) lifeLabel.classList.add('danger');
             else lifeLabel.classList.remove('danger');
             
             slot.appendChild(createDraggableWrapper(p, 'hand', i));
         } else {
-            lifeLabel.innerText = "";
+            lifeLabel.innerText = "あと0"; 
+            lifeLabel.classList.add('empty');
         }
     });
 
