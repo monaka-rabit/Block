@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Less Small Pieces</title>
+    <title>Score Puzzle 7x7 - Rotation Costs Turn</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -15,9 +15,7 @@
             --accent: #f1c40f;
             --danger: #e74c3c;
             --selected: #e74c3c;
-            /* 画面幅に合わせて盤面サイズを自動調整 (最大450px) */
             --board-size: min(92vw, 450px);
-            /* 7x7用に計算 ( / 7 ) */
             --cell-size: calc((var(--board-size) - 20px) / 7);
         }
 
@@ -146,7 +144,6 @@
             transition: all 0.2s;
         }
 
-        /* 次に来るピース(1番目)の強調 */
         .next-item.imminent .next-piece-box {
             width: 48px;
             height: 48px;
@@ -256,8 +253,8 @@
         </div>
 
         <div class="btn-group">
-            <button onclick="rotateSelectedHand()">回転 ↻</button>
-            <button onclick="flipSelectedHand()">反転 ⇄</button>
+            <button onclick="rotateSelectedHand()">回転 (-1T)</button>
+            <button onclick="flipSelectedHand()">反転 (-1T)</button>
         </div>
     </div>
 
@@ -269,13 +266,12 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Balanced) */
+/** * Score Puzzle 7x7 Logic (Rotation Costs Turn) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 
-// ピース定義
 const SHAPES = {
     '1x1': [[1]],
     '2x2': [[1,1],[1,1]],
@@ -322,21 +318,17 @@ function initGame() {
     updateUI();
 }
 
-/* --- ピース生成ロジック (調整済み) --- */
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
     let key;
-    
-    // 単純な重み付け: 1x1, I2, O が出たら50%の確率で再抽選
-    // これにより小さいピースの出現頻度が下がります
+    // 小さいピースの出現頻度を下げる
     for (let i = 0; i < 2; i++) {
         key = keys[Math.floor(Math.random() * keys.length)];
         if (key === '1x1' || key === 'I2' || key === 'O') {
-            if (Math.random() > 0.5) continue; // 50%でやり直し
+            if (Math.random() > 0.5) continue; 
         }
         break; 
     }
-
     let matrix = SHAPES[key];
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrix(matrix);
@@ -349,7 +341,7 @@ function generateValidPiece() {
         let p = generateRandomPiece();
         if (canPlaceAnywhere(p.matrix)) return p;
     }
-    return { matrix: [[1]] }; // 詰み防止
+    return { matrix: [[1]] };
 }
 
 function rotateMatrix(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
@@ -386,9 +378,7 @@ function selectHand(index) {
 function startDrag(source, index, clientX, clientY, targetElement) {
     const piece = (source === 'hand') ? hand[index] : keepPiece;
     if (!piece) return;
-
     selectHand(source === 'hand' ? index : -1);
-
     const rect = targetElement.getBoundingClientRect();
     draggingPieceInfo = {
         matrix: piece.matrix,
@@ -405,27 +395,22 @@ function handleDragStart(e, source, index) {
     if (isGameOver) { e.preventDefault(); return; }
     startDrag(source, index, e.clientX, e.clientY, e.currentTarget);
 }
-
 function handleTouchStart(e, source, index) {
     if (isGameOver) return;
     const touch = e.touches[0];
     startDrag(source, index, touch.clientX, touch.clientY, e.currentTarget);
     if (draggingPieceInfo) createDragGhost(source, index, touch.clientX, touch.clientY);
 }
-
 function handleTouchMove(e) {
     if (!draggingPieceInfo || !dragGhost) return;
     if(e.cancelable) e.preventDefault(); 
     const touch = e.touches[0];
-    const ghostX = touch.clientX - 25; 
-    const ghostY = touch.clientY - 60; 
-    dragGhost.style.left = ghostX + 'px';
-    dragGhost.style.top = ghostY + 'px';
+    dragGhost.style.left = (touch.clientX - 25) + 'px';
+    dragGhost.style.top = (touch.clientY - 60) + 'px';
     const pos = getBoardCoords(touch.clientX, touch.clientY);
     if (pos.valid) updatePreview(pos.x, pos.y);
     else clearPreview();
 }
-
 function handleTouchEnd(e) {
     if (!draggingPieceInfo) return;
     const touch = e.changedTouches[0];
@@ -457,14 +442,12 @@ function getBoardCoords(clientX, clientY) {
         valid: true
     };
 }
-
 function updatePreview(bx, by) {
     const tx = bx - draggingPieceInfo.offsetCol;
     const ty = by - draggingPieceInfo.offsetRow;
     clearPreview();
     if (canPlace(draggingPieceInfo.matrix, tx, ty)) drawPreview(draggingPieceInfo.matrix, tx, ty);
 }
-
 function attemptPlace(bx, by) {
     const tx = bx - draggingPieceInfo.offsetCol;
     const ty = by - draggingPieceInfo.offsetRow;
@@ -483,7 +466,6 @@ function attemptPlace(bx, by) {
         updateUI();
     }
 }
-
 function executeKeep() {
     const idx = draggingPieceInfo.index;
     const target = hand[idx];
@@ -505,7 +487,6 @@ function processTurn() {
     let rows = [], cols = [];
     for(let y=0; y<BOARD_SIZE; y++) if(board[y].every(c => c===1)) rows.push(y);
     for(let x=0; x<BOARD_SIZE; x++) if(board.map(r=>r[x]).every(c => c===1)) cols.push(x);
-
     if (rows.length > 0 || cols.length > 0) {
         rows.forEach(y => board[y].fill(0));
         cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
@@ -523,11 +504,43 @@ function processTurn() {
     checkGameOver();
 }
 
+/* --- 回転・反転ロジック (ターン消費付き) --- */
+function consumeTurnAction(actionType) {
+    if (isGameOver) return;
+    
+    // 既にLIMITギリギリでも実行は許可するが、即死はさせない（次のターンで判定）
+    // または、即座にターン消費としてカウントしてゲームオーバーにするなら以下を実行
+    turnsSinceClear++; 
+    turnsSinceCombo++;
+    checkGameOver(); // これでLIMITを超えたらゲームオーバー画面へ
+    updateUI();
+}
+
+function rotateSelectedHand() {
+    if (isGameOver) return;
+    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
+    if(t) { 
+        t.matrix = rotateMatrix(t.matrix); 
+        consumeTurnAction();
+    }
+}
+function flipSelectedHand() {
+    if (isGameOver) return;
+    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
+    if(t) { 
+        t.matrix = flipMatrix(t.matrix); 
+        consumeTurnAction();
+    }
+}
+
+/* --- ゲームオーバー判定 --- */
 function checkGameOver() {
+    // ターン制限チェック
     if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) {
         triggerGameOver("タイムアップ (5ターン消去なし)");
         return;
     }
+    // 配置不能チェック
     let canMove = false;
     hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
     if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
@@ -544,6 +557,7 @@ function triggerGameOver(reason) {
     document.getElementById('game-over').style.display = 'flex';
 }
 
+/* --- 描画関連 --- */
 function createBoardElements() {
     const el = document.getElementById('board');
     el.innerHTML = '';
@@ -553,16 +567,20 @@ function createBoardElements() {
         el.appendChild(c);
     }
 }
-
 function updateUI() {
     for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
         const cell = document.getElementById(`c-${y}-${x}`);
         cell.className = 'cell' + (board[y][x] ? ' filled' : '');
     }
     document.getElementById('score').innerText = score.toLocaleString();
+    
+    // LIMIT表示
     const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
-    document.getElementById('turn-limit').innerText = limit;
-    if(limit <= 2) document.getElementById('turn-box').classList.add('danger');
+    // 0未満にならないように表示制御 (ゲームオーバー判定前の一瞬の表示ズレ防止)
+    const displayLimit = Math.max(0, limit);
+    document.getElementById('turn-limit').innerText = displayLimit;
+    
+    if(displayLimit <= 2) document.getElementById('turn-box').classList.add('danger');
     else document.getElementById('turn-box').classList.remove('danger');
 
     hand.forEach((p, i) => {
@@ -598,7 +616,6 @@ function updateUI() {
         nList.appendChild(item);
     });
 }
-
 function createDraggableWrapper(piece, source, index) {
     const w = document.createElement('div');
     w.style.padding = '5px';
@@ -610,7 +627,6 @@ function createDraggableWrapper(piece, source, index) {
     w.appendChild(createPieceElement(piece.matrix, 10));
     return w;
 }
-
 function createPieceElement(matrix, cellSize) {
     const h = matrix.length;
     const w = matrix[0].length;
@@ -631,7 +647,6 @@ function createPieceElement(matrix, cellSize) {
     }
     return grid;
 }
-
 function drawPreview(matrix, sx, sy) {
     for(let r=0; r<matrix.length; r++) for(let c=0; c<matrix[0].length; c++) {
         if(matrix[r][c] === 1) {
@@ -643,7 +658,6 @@ function drawPreview(matrix, sx, sy) {
 function clearPreview() {
     document.querySelectorAll('.drag-preview').forEach(e => e.classList.remove('drag-preview'));
 }
-
 function createDragGhost(source, index, x, y) {
     removeDragGhost();
     const piece = (source === 'hand') ? hand[index] : keepPiece;
@@ -659,16 +673,6 @@ function removeDragGhost() {
     if (dragGhost) dragGhost.remove();
     dragGhost = null;
 }
-
-function rotateSelectedHand() {
-    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
-    if(t) { t.matrix = rotateMatrix(t.matrix); updateUI(); }
-}
-function flipSelectedHand() {
-    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
-    if(t) { t.matrix = flipMatrix(t.matrix); updateUI(); }
-}
-
 function handleDragOver(e) {
     e.preventDefault();
     if (!draggingPieceInfo) return;
