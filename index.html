@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Hard Mode</title>
+    <title>Score Puzzle 7x7 - Next 3</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -134,7 +134,7 @@
         #next-list {
             display: flex;
             flex-direction: row;
-            gap: 12px;
+            gap: 20px; /* 間隔を少し広げました */
             align-items: flex-end;
         }
         .next-item {
@@ -280,34 +280,20 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Hard Mode) */
+/** * Score Puzzle 7x7 Logic (Next 3) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 
-// 【調整】難易度アップのための形状追加
 const SHAPES = {
-    // Basic
     '1x1': [[1]],
-    'I2': [[1,1]], 
-    'I3': [[1,1,1]], 
-    'I4': [[1,1,1,1]], 
-    'I5': [[1,1,1,1,1]], // 長い棒は7x7だとかなり邪魔
-    'L2': [[1,0],[1,1]], 
-    'L3': [[1,0],[1,0],[1,1]], 
-    'J3': [[0,1],[0,1],[1,1]],
-    'T': [[1,1,1],[0,1,0]], 
-    'Z': [[1,1,0],[0,1,1]], 
-    'S': [[0,1,1],[1,1,0]],
-    
-    // Hard Shapes (New!)
-    '2x2': [[1,1],[1,1]], // 基本だが意外と場所を取る
-    '3x3': [[1,1,1],[1,1,1],[1,1,1]], // 9マス埋まる超巨大ブロック
-    'Plus': [[0,1,0],[1,1,1],[0,1,0]], // 十字
-    'U': [[1,0,1],[1,0,1],[1,1,1]], // U字
-    'Corner': [[1,1,1],[1,0,0],[1,0,0]] // 大きな角
+    'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]],
+    'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
+    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
+    '2x2': [[1,1],[1,1]], '3x3': [[1,1,1],[1,1,1],[1,1,1]],
+    'Plus': [[0,1,0],[1,1,1],[0,1,0]], 'U': [[1,0,1],[1,0,1],[1,1,1]], 'Corner': [[1,1,1],[1,0,0],[1,0,0]]
 };
 
 let board = [];
@@ -334,7 +320,7 @@ function initGame() {
     score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
     
     pieceQueue = [];
-    for(let i=0; i<8; i++) pieceQueue.push(generateRandomPiece()); // 救済なし
+    for(let i=0; i<8; i++) pieceQueue.push(generateRandomPiece());
     hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
     while(pieceQueue.length < 8) pieceQueue.push(generateRandomPiece());
 
@@ -347,22 +333,16 @@ function initGame() {
     updateUI();
 }
 
-// 【調整】出現確率の調整（小さいピースを激レアに）
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
     let key;
-    
-    // 試行回数を増やして、小さいピース(1x1, I2)が出たら再抽選する確率を上げる
-    // これにより、ほとんどの場合で中～大型のピースが出るようになる
     for (let i = 0; i < 4; i++) {
         key = keys[Math.floor(Math.random() * keys.length)];
-        // 1x1, I2は 80%の確率で再抽選（かなり出にくくする）
         if (key === '1x1' || key === 'I2') {
             if (Math.random() > 0.2) continue; 
         }
         break; 
     }
-    
     let matrix = SHAPES[key];
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
@@ -370,12 +350,7 @@ function generateRandomPiece() {
     return { matrix: matrix };
 }
 
-// 【重要】「置けるピースを保証する」関数を廃止し、完全ランダム生成を使用する
-function generateValidPiece() {
-    // 以前のロジック：何回も試行して置けるものを探す -> 廃止
-    // 新しいロジック：容赦なくランダムなピースを返す
-    return generateRandomPiece();
-}
+function generateValidPiece() { return generateRandomPiece(); }
 
 function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
 function rotateMatrixCCW(m) { return m[0].map((val, index) => m.map(row => row[row.length - 1 - index])); }
@@ -490,7 +465,6 @@ function attemptPlace(bx, by) {
         }
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
-            // ランダム生成（救済なし）
             pieceQueue.push(generateRandomPiece());
         } else {
             keepPiece = null;
@@ -649,7 +623,9 @@ function updateUI() {
 
     const nList = document.getElementById('next-list');
     nList.innerHTML = '';
-    pieceQueue.slice(0, 5).forEach((p, index) => {
+    
+    // 表示数を3に変更
+    pieceQueue.slice(0, 3).forEach((p, index) => {
         const item = document.createElement('div');
         item.className = 'next-item' + (index === 0 ? ' imminent' : '');
         const label = document.createElement('div');
