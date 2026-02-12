@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Mobile Complete</title>
+    <title>Score Puzzle 7x7 - Less Small Pieces</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -17,7 +17,7 @@
             --selected: #e74c3c;
             /* 画面幅に合わせて盤面サイズを自動調整 (最大450px) */
             --board-size: min(92vw, 450px);
-            /* 7x7用に計算を変更 ( / 7 ) */
+            /* 7x7用に計算 ( / 7 ) */
             --cell-size: calc((var(--board-size) - 20px) / 7);
         }
 
@@ -84,7 +84,7 @@
         }
         #keep-slot.selected { border-color: var(--selected); background: rgba(231, 76, 60, 0.2); }
 
-        /* --- 盤面 (7x7用に変更) --- */
+        /* --- 盤面 (7x7) --- */
         #board {
             display: grid;
             grid-template-columns: repeat(7, var(--cell-size));
@@ -269,9 +269,8 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic */
+/** * Score Puzzle 7x7 Logic (Balanced) */
 
-// 【変更点】 盤面サイズを7に変更
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
@@ -323,9 +322,21 @@ function initGame() {
     updateUI();
 }
 
+/* --- ピース生成ロジック (調整済み) --- */
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
-    const key = keys[Math.floor(Math.random() * keys.length)];
+    let key;
+    
+    // 単純な重み付け: 1x1, I2, O が出たら50%の確率で再抽選
+    // これにより小さいピースの出現頻度が下がります
+    for (let i = 0; i < 2; i++) {
+        key = keys[Math.floor(Math.random() * keys.length)];
+        if (key === '1x1' || key === 'I2' || key === 'O') {
+            if (Math.random() > 0.5) continue; // 50%でやり直し
+        }
+        break; 
+    }
+
     let matrix = SHAPES[key];
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrix(matrix);
@@ -338,7 +349,7 @@ function generateValidPiece() {
         let p = generateRandomPiece();
         if (canPlaceAnywhere(p.matrix)) return p;
     }
-    return { matrix: [[1]] };
+    return { matrix: [[1]] }; // 詰み防止
 }
 
 function rotateMatrix(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
