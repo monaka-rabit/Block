@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Animation</title>
+    <title>Score Puzzle 7x7 - Fixed Animation</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -98,7 +98,7 @@
             height: var(--cell-size);
             background-color: var(--cell-empty);
             border-radius: 2px;
-            transition: background-color 0.2s; /* 色変化を滑らかに */
+            transition: background-color 0.2s; 
         }
         .cell.filled { background-color: var(--cell-filled); box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
@@ -112,7 +112,7 @@
         @keyframes vanish {
             0% {
                 transform: scale(1);
-                background-color: #fff; /* 一瞬白く光る */
+                background-color: #fff;
                 box-shadow: 0 0 10px #fff;
             }
             100% {
@@ -279,12 +279,12 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (With Animation) */
+/** * Score Puzzle 7x7 Logic (Fixed Animation) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
-const ANIMATION_DURATION = 400; // アニメーション時間(ms)
+const ANIMATION_DURATION = 400;
 
 const SHAPES = {
     '1x1': [[1]],
@@ -305,7 +305,7 @@ let pieceQueue = [];
 let hand = [null, null, null];
 let keepPiece = null;
 let isGameOver = false;
-let isAnimating = false; // アニメーション中のフラグ
+let isAnimating = false;
 let selectedHandIndex = 0;
 let draggingPieceInfo = null;
 let dragGhost = null;
@@ -503,28 +503,24 @@ function processTurn() {
     for(let x=0; x<BOARD_SIZE; x++) if(board.map(r=>r[x]).every(c => c===1)) cols.push(x);
 
     if (rows.length > 0 || cols.length > 0) {
-        // --- アニメーション処理 ---
         isAnimating = true;
 
-        // 消去するセルにクラスを付与
+        // アニメーションクラス付与
         rows.forEach(y => {
-            for(let x=0; x<BOARD_SIZE; x++) {
-                const cell = document.getElementById(`c-${y}-${x}`);
-                if(cell) cell.classList.add('clearing');
-            }
+            for(let x=0; x<BOARD_SIZE; x++) document.getElementById(`c-${y}-${x}`).classList.add('clearing');
         });
         cols.forEach(x => {
-            for(let y=0; y<BOARD_SIZE; y++) {
-                const cell = document.getElementById(`c-${y}-${x}`);
-                if(cell) cell.classList.add('clearing');
-            }
+            for(let y=0; y<BOARD_SIZE; y++) document.getElementById(`c-${y}-${x}`).classList.add('clearing');
         });
 
-        // アニメーション完了後にロジック実行
         setTimeout(() => {
+            // 論理データを削除
             rows.forEach(y => board[y].fill(0));
             cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
             
+            // アニメーションクラスを強制削除 (ここが修正ポイント)
+            document.querySelectorAll('.clearing').forEach(el => el.classList.remove('clearing'));
+
             if (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) combo++;
             else combo = 1;
             
@@ -536,7 +532,7 @@ function processTurn() {
             score += Math.floor(baseScore * (1 + (combo - 1) * 0.5));
             
             isAnimating = false;
-            updateUI(); // 盤面再描画（これで.clearingクラスも消える）
+            updateUI();
             checkGameOver();
 
         }, ANIMATION_DURATION);
@@ -559,26 +555,17 @@ function consumeTurnAction() {
 function rotateRight() {
     if (isGameOver || isAnimating) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
-    if(t) { 
-        t.matrix = rotateMatrixCW(t.matrix); 
-        consumeTurnAction();
-    }
+    if(t) { t.matrix = rotateMatrixCW(t.matrix); consumeTurnAction(); }
 }
 function rotateLeft() {
     if (isGameOver || isAnimating) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
-    if(t) { 
-        t.matrix = rotateMatrixCCW(t.matrix); 
-        consumeTurnAction();
-    }
+    if(t) { t.matrix = rotateMatrixCCW(t.matrix); consumeTurnAction(); }
 }
 function flipSelectedHand() {
     if (isGameOver || isAnimating) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
-    if(t) { 
-        t.matrix = flipMatrix(t.matrix); 
-        consumeTurnAction();
-    }
+    if(t) { t.matrix = flipMatrix(t.matrix); consumeTurnAction(); }
 }
 
 function checkGameOver() {
@@ -614,7 +601,6 @@ function createBoardElements() {
 function updateUI() {
     for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
         const cell = document.getElementById(`c-${y}-${x}`);
-        // アニメーション中ならクラスを維持するため、上書きしない
         if (!cell.classList.contains('clearing')) {
             cell.className = 'cell' + (board[y][x] ? ' filled' : '');
         }
