@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Dual Rotation</title>
+    <title>Score Puzzle 7x7 - Animation</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -68,7 +68,6 @@
         .info-box .label { font-size: 0.7rem; color: #bdc3c7; margin-bottom: 2px; }
         .info-box .value { font-size: 1.1rem; font-weight: bold; margin: 0; }
 
-        /* KEEP専用スタイル */
         #keep-slot {
             width: 40px;
             height: 40px;
@@ -82,7 +81,7 @@
         }
         #keep-slot.selected { border-color: var(--selected); background: rgba(231, 76, 60, 0.2); }
 
-        /* --- 盤面 (7x7) --- */
+        /* --- 盤面 --- */
         #board {
             display: grid;
             grid-template-columns: repeat(7, var(--cell-size));
@@ -99,9 +98,28 @@
             height: var(--cell-size);
             background-color: var(--cell-empty);
             border-radius: 2px;
+            transition: background-color 0.2s; /* 色変化を滑らかに */
         }
         .cell.filled { background-color: var(--cell-filled); box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
+
+        /* --- 消去アニメーション --- */
+        .cell.clearing {
+            animation: vanish 0.4s ease-out forwards;
+            z-index: 10;
+        }
+
+        @keyframes vanish {
+            0% {
+                transform: scale(1);
+                background-color: #fff; /* 一瞬白く光る */
+                box-shadow: 0 0 10px #fff;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
 
         /* --- NEXT リスト --- */
         .next-wrapper {
@@ -112,27 +130,23 @@
             display: flex;
             justify-content: center;
         }
-
         #next-list {
             display: flex;
             flex-direction: row;
             gap: 12px;
             align-items: flex-end;
         }
-
         .next-item {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-
         .next-label {
             font-size: 0.6rem;
             color: #95a5a6;
             margin-bottom: 4px;
             font-weight: bold;
         }
-
         .next-piece-box {
             display: flex;
             justify-content: center;
@@ -143,7 +157,6 @@
             height: 36px;
             transition: all 0.2s;
         }
-
         .next-item.imminent .next-piece-box {
             width: 48px;
             height: 48px;
@@ -151,10 +164,7 @@
             border: 1px solid var(--accent);
             box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
         }
-        .next-item.imminent .next-label {
-            color: var(--accent);
-            font-size: 0.7rem;
-        }
+        .next-item.imminent .next-label { color: var(--accent); font-size: 0.7rem; }
 
         /* --- 手札 --- */
         #hand-container {
@@ -164,7 +174,6 @@
             width: 100%;
             margin-top: 5px;
         }
-
         .piece-slot {
             width: calc(var(--board-size) / 3.5);
             height: calc(var(--board-size) / 3.5);
@@ -181,7 +190,7 @@
             background: rgba(231, 76, 60, 0.15);
         }
 
-        /* --- 操作ボタン (3つ並べるために調整) --- */
+        /* --- ボタン --- */
         .btn-group { 
             display: flex; 
             gap: 5px; 
@@ -190,7 +199,7 @@
             justify-content: center;
         }
         button {
-            padding: 10px 10px; /* 横幅を少し節約 */
+            padding: 10px 10px;
             flex: 1;
             max-width: 120px;
             background: #34495e;
@@ -204,22 +213,16 @@
         }
         button:active { transform: translateY(2px); background: #2c3e50; }
 
-        /* --- ドラッグ中のゴースト --- */
         .drag-ghost {
-            position: fixed;
-            pointer-events: none;
-            z-index: 9999;
-            opacity: 0.8;
-            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
+            position: fixed; pointer-events: none; z-index: 9999;
+            opacity: 0.8; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
         }
 
-        /* --- ゲームオーバー画面 --- */
         #game-over {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); display: none;
             flex-direction: column; justify-content: center; align-items: center; z-index: 2000;
         }
-        
         .danger { color: var(--danger) !important; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
     </style>
@@ -276,11 +279,12 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Dual Rotation) */
+/** * Score Puzzle 7x7 Logic (With Animation) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
+const ANIMATION_DURATION = 400; // アニメーション時間(ms)
 
 const SHAPES = {
     '1x1': [[1]],
@@ -301,6 +305,7 @@ let pieceQueue = [];
 let hand = [null, null, null];
 let keepPiece = null;
 let isGameOver = false;
+let isAnimating = false; // アニメーション中のフラグ
 let selectedHandIndex = 0;
 let draggingPieceInfo = null;
 let dragGhost = null;
@@ -308,9 +313,9 @@ let dragOffset = { x: 0, y: 0 };
 
 document.addEventListener('DOMContentLoaded', initGame);
 
-/* --- 初期化 --- */
 function initGame() {
     isGameOver = false;
+    isAnimating = false;
     board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
     score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
     
@@ -353,18 +358,9 @@ function generateValidPiece() {
     return { matrix: [[1]] };
 }
 
-// 右回転 (Clockwise)
-function rotateMatrixCW(m) { 
-    return m[0].map((val, index) => m.map(row => row[index]).reverse()); 
-}
-// 左回転 (Counter-Clockwise)
-function rotateMatrixCCW(m) {
-    return m[0].map((val, index) => m.map(row => row[row.length - 1 - index]));
-}
-// 反転
-function flipMatrix(m) { 
-    return m.map(row => [...row].reverse()); 
-}
+function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
+function rotateMatrixCCW(m) { return m[0].map((val, index) => m.map(row => row[row.length - 1 - index])); }
+function flipMatrix(m) { return m.map(row => [...row].reverse()); }
 
 function canPlace(matrix, startX, startY) {
     for (let r = 0; r < matrix.length; r++) {
@@ -380,21 +376,19 @@ function canPlace(matrix, startX, startY) {
 }
 
 function canPlaceAnywhere(matrix) {
-    for(let y=0; y<BOARD_SIZE; y++) {
-        for(let x=0; x<BOARD_SIZE; x++) {
-            if(canPlace(matrix, x, y)) return true;
-        }
-    }
+    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) if(canPlace(matrix, x, y)) return true;
     return false;
 }
 
 function selectHand(index) {
+    if (isAnimating) return;
     selectedHandIndex = index;
     updateUI();
 }
 
 /* --- Drag & Drop --- */
 function startDrag(source, index, clientX, clientY, targetElement) {
+    if (isAnimating) return;
     const piece = (source === 'hand') ? hand[index] : keepPiece;
     if (!piece) return;
     selectHand(source === 'hand' ? index : -1);
@@ -411,11 +405,11 @@ function startDrag(source, index, clientX, clientY, targetElement) {
 }
 
 function handleDragStart(e, source, index) {
-    if (isGameOver) { e.preventDefault(); return; }
+    if (isGameOver || isAnimating) { e.preventDefault(); return; }
     startDrag(source, index, e.clientX, e.clientY, e.currentTarget);
 }
 function handleTouchStart(e, source, index) {
-    if (isGameOver) return;
+    if (isGameOver || isAnimating) return;
     const touch = e.touches[0];
     startDrag(source, index, touch.clientX, touch.clientY, e.currentTarget);
     if (draggingPieceInfo) createDragGhost(source, index, touch.clientX, touch.clientY);
@@ -486,6 +480,7 @@ function attemptPlace(bx, by) {
     }
 }
 function executeKeep() {
+    if(isAnimating) return;
     const idx = draggingPieceInfo.index;
     const target = hand[idx];
     if (!target) return;
@@ -506,26 +501,55 @@ function processTurn() {
     let rows = [], cols = [];
     for(let y=0; y<BOARD_SIZE; y++) if(board[y].every(c => c===1)) rows.push(y);
     for(let x=0; x<BOARD_SIZE; x++) if(board.map(r=>r[x]).every(c => c===1)) cols.push(x);
+
     if (rows.length > 0 || cols.length > 0) {
-        rows.forEach(y => board[y].fill(0));
-        cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
-        if (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) combo++;
-        else combo = 1;
-        turnsSinceCombo = 0;
-        turnsSinceClear = 0;
-        const clearedCount = rows.length + cols.length;
-        const baseScore = clearedCount * 100 * BOARD_SIZE;
-        score += Math.floor(baseScore * (1 + (combo - 1) * 0.5));
+        // --- アニメーション処理 ---
+        isAnimating = true;
+
+        // 消去するセルにクラスを付与
+        rows.forEach(y => {
+            for(let x=0; x<BOARD_SIZE; x++) {
+                const cell = document.getElementById(`c-${y}-${x}`);
+                if(cell) cell.classList.add('clearing');
+            }
+        });
+        cols.forEach(x => {
+            for(let y=0; y<BOARD_SIZE; y++) {
+                const cell = document.getElementById(`c-${y}-${x}`);
+                if(cell) cell.classList.add('clearing');
+            }
+        });
+
+        // アニメーション完了後にロジック実行
+        setTimeout(() => {
+            rows.forEach(y => board[y].fill(0));
+            cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
+            
+            if (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) combo++;
+            else combo = 1;
+            
+            turnsSinceCombo = 0;
+            turnsSinceClear = 0;
+            
+            const clearedCount = rows.length + cols.length;
+            const baseScore = clearedCount * 100 * BOARD_SIZE;
+            score += Math.floor(baseScore * (1 + (combo - 1) * 0.5));
+            
+            isAnimating = false;
+            updateUI(); // 盤面再描画（これで.clearingクラスも消える）
+            checkGameOver();
+
+        }, ANIMATION_DURATION);
+
     } else {
         turnsSinceClear++;
         turnsSinceCombo++;
+        checkGameOver();
     }
-    checkGameOver();
 }
 
-/* --- 回転・反転ロジック (ターン消費付き) --- */
 function consumeTurnAction() {
-    if (isGameOver) return;
+    if (isGameOver || isAnimating) return;
     turnsSinceClear++; 
     turnsSinceCombo++;
     checkGameOver(); 
@@ -533,7 +557,7 @@ function consumeTurnAction() {
 }
 
 function rotateRight() {
-    if (isGameOver) return;
+    if (isGameOver || isAnimating) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
     if(t) { 
         t.matrix = rotateMatrixCW(t.matrix); 
@@ -541,7 +565,7 @@ function rotateRight() {
     }
 }
 function rotateLeft() {
-    if (isGameOver) return;
+    if (isGameOver || isAnimating) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
     if(t) { 
         t.matrix = rotateMatrixCCW(t.matrix); 
@@ -549,7 +573,7 @@ function rotateLeft() {
     }
 }
 function flipSelectedHand() {
-    if (isGameOver) return;
+    if (isGameOver || isAnimating) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
     if(t) { 
         t.matrix = flipMatrix(t.matrix); 
@@ -557,7 +581,6 @@ function flipSelectedHand() {
     }
 }
 
-/* --- ゲームオーバー判定 --- */
 function checkGameOver() {
     if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) {
         triggerGameOver("タイムアップ (5ターン消去なし)");
@@ -579,7 +602,6 @@ function triggerGameOver(reason) {
     document.getElementById('game-over').style.display = 'flex';
 }
 
-/* --- 描画関連 --- */
 function createBoardElements() {
     const el = document.getElementById('board');
     el.innerHTML = '';
@@ -592,7 +614,10 @@ function createBoardElements() {
 function updateUI() {
     for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
         const cell = document.getElementById(`c-${y}-${x}`);
-        cell.className = 'cell' + (board[y][x] ? ' filled' : '');
+        // アニメーション中ならクラスを維持するため、上書きしない
+        if (!cell.classList.contains('clearing')) {
+            cell.className = 'cell' + (board[y][x] ? ' filled' : '');
+        }
     }
     document.getElementById('score').innerText = score.toLocaleString();
     
