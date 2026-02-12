@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Arrow Icons</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Score Puzzle 7x7 - Mobile Fit</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -15,35 +15,58 @@
             --accent: #f1c40f;
             --danger: #e74c3c;
             --selected: #e74c3c;
-            --board-size: min(92vw, 450px);
+            
+            /* 【重要】画面サイズ計算の修正 
+               横幅(92vw) または 縦幅の50%(50dvh) のうち、小さい方を基準にする。
+               これにより、縦長の画面でも横長の画面でも、盤面が大きすぎてボタンが隠れるのを防ぐ。
+            */
+            --board-size: min(92vw, 50dvh, 450px);
             --cell-size: calc((var(--board-size) - 20px) / 7);
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             font-family: 'Segoe UI', sans-serif;
             background-color: var(--bg-color);
             color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             margin: 0;
-            padding: 10px 0;
+            padding: 0;
             user-select: none;
             touch-action: none;
             overscroll-behavior: none;
             overflow: hidden;
-            height: 100vh;
+            
+            /* 画面の高さを動的に取得し、フレックスボックスで配置 */
+            height: 100dvh; /* dvh: アドレスバーを除いた高さ */
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            
+            /* iPhoneの下部バー対策 */
+            padding-bottom: env(safe-area-inset-bottom); 
         }
 
-        h1 { margin: 5px 0 10px 0; font-size: 1.4rem; }
+        h1 { 
+            margin: 0; 
+            padding: 5px 0;
+            font-size: 1.2rem; 
+            flex-shrink: 0; /* タイトルは縮めない */
+        }
 
         .game-container {
             display: flex;
             flex-direction: column;
-            gap: 8px;
             align-items: center;
+            justify-content: space-evenly; /* 縦方向のスペースを均等に配分 */
             width: 100%;
+            height: 100%;
             max-width: 500px;
+            padding: 5px 10px;
         }
 
         /* --- 上部パネル (4列) --- */
@@ -52,25 +75,26 @@
             grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 5px;
             width: var(--board-size);
+            flex-shrink: 0;
         }
 
         .info-box {
             background: rgba(0,0,0,0.3);
-            padding: 5px;
+            padding: 2px;
             border-radius: 6px;
             text-align: center;
             border: 1px solid rgba(255,255,255,0.1);
             display: flex;
             flex-direction: column;
             justify-content: center;
-            height: 50px;
+            height: 45px; /* 高さを少し固定 */
         }
         .info-box .label { font-size: 0.6rem; color: #bdc3c7; margin-bottom: 2px; }
-        .info-box .value { font-size: 1.0rem; font-weight: bold; margin: 0; }
+        .info-box .value { font-size: 0.9rem; font-weight: bold; margin: 0; }
 
         #keep-slot {
-            width: 35px;
-            height: 35px;
+            width: 30px;
+            height: 30px;
             margin: 0 auto;
             border: 1px dashed #7f8c8d;
             border-radius: 4px;
@@ -91,6 +115,7 @@
             padding: 4px;
             border-radius: 4px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            flex-shrink: 0; /* 盤面は勝手に縮ませない（--board-sizeで制御） */
         }
 
         .cell {
@@ -103,33 +128,26 @@
         .cell.filled { background-color: var(--cell-filled); box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
 
-        /* --- 消去アニメーション --- */
         .cell.clearing {
             animation: flashFade 0.4s ease-out forwards;
             z-index: 10;
         }
 
         @keyframes flashFade {
-            0% {
-                background-color: #fff;
-                transform: scale(1.05);
-                box-shadow: 0 0 10px #fff;
-            }
-            100% {
-                background-color: var(--cell-empty);
-                transform: scale(1);
-                box-shadow: none;
-            }
+            0% { background-color: #fff; transform: scale(1.05); box-shadow: 0 0 10px #fff; }
+            100% { background-color: var(--cell-empty); transform: scale(1); box-shadow: none; }
         }
 
         /* --- NEXT リスト --- */
         .next-wrapper {
             width: var(--board-size);
             background: rgba(0,0,0,0.2);
-            padding: 8px 0;
+            padding: 4px 0;
             border-radius: 8px;
             display: flex;
             justify-content: center;
+            flex-shrink: 0;
+            margin: 2px 0;
         }
         #next-list {
             display: flex;
@@ -145,7 +163,7 @@
         .next-label {
             font-size: 0.6rem;
             color: #95a5a6;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             font-weight: bold;
         }
         .next-piece-box {
@@ -154,13 +172,13 @@
             align-items: center;
             background: rgba(255,255,255,0.05);
             border-radius: 4px;
-            width: 36px;
-            height: 36px;
+            width: 30px;
+            height: 30px;
             transition: all 0.2s;
         }
         .next-item.imminent .next-piece-box {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             background: rgba(241, 196, 15, 0.15);
             border: 1px solid var(--accent);
             box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
@@ -173,7 +191,8 @@
             gap: 5px; 
             justify-content: space-between; 
             width: var(--board-size); 
-            margin-top: 5px;
+            /* ここはフレックスで伸縮させず、コンテンツサイズに合わせる */
+            flex-shrink: 0; 
         }
         
         .piece-slot-wrapper {
@@ -212,25 +231,25 @@
             background: rgba(231, 76, 60, 0.15);
         }
 
-        /* --- ボタン (矢印対応) --- */
+        /* --- ボタン --- */
         .btn-group { 
             display: flex; 
             gap: 10px; 
-            margin-top: 10px; 
             width: 100%;
             justify-content: center;
+            /* 下部に少し余裕を持たせる */
+            margin-bottom: 5px;
+            flex-shrink: 0;
         }
         button {
-            padding: 5px 0;
+            padding: 8px 0;
             flex: 1;
-            max-width: 100px;
+            max-width: 90px;
             background: #34495e;
             color: #fff;
             border: 1px solid #7f8c8d;
             border-radius: 10px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            
-            /* 矢印とコストを縦並びにする設定 */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -240,11 +259,11 @@
         button:active { transform: translateY(2px); background: #2c3e50; }
 
         .btn-icon {
-            font-size: 1.5rem; /* 矢印を大きく */
+            font-size: 1.4rem;
             margin-bottom: 2px;
         }
         .btn-cost {
-            font-size: 0.65rem; /* コスト表記を小さく */
+            font-size: 0.6rem;
             color: #bdc3c7;
             font-weight: normal;
         }
@@ -337,7 +356,7 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Arrow Icons) */
+/** * Score Puzzle 7x7 Logic (Mobile Optimized) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
