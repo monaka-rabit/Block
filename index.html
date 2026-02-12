@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Fixed Animation</title>
+    <title>Score Puzzle 7x7 - Smooth Fade</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -98,26 +98,29 @@
             height: var(--cell-size);
             background-color: var(--cell-empty);
             border-radius: 2px;
-            transition: background-color 0.2s; 
+            /* 色の変化を少し滑らかにするが、判定更新時は即時反映されるように短めに */
+            transition: background-color 0.1s; 
         }
         .cell.filled { background-color: var(--cell-filled); box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
 
-        /* --- 消去アニメーション --- */
+        /* --- 消去アニメーション (修正版) --- */
+        /* マス自体を消すのではなく、色を「白→空色」に変化させる */
         .cell.clearing {
-            animation: vanish 0.4s ease-out forwards;
+            animation: flashFade 0.4s ease-out forwards;
             z-index: 10;
         }
 
-        @keyframes vanish {
+        @keyframes flashFade {
             0% {
-                transform: scale(1);
-                background-color: #fff;
+                background-color: #fff; /* 一瞬白く光る */
+                transform: scale(1.05); /* ほんの少し膨らむ */
                 box-shadow: 0 0 10px #fff;
             }
             100% {
-                transform: scale(0);
-                opacity: 0;
+                background-color: var(--cell-empty); /* 最終的に「空」の色になる */
+                transform: scale(1); /* サイズは元通り */
+                box-shadow: none;
             }
         }
 
@@ -279,7 +282,7 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Fixed Animation) */
+/** * Score Puzzle 7x7 Logic (Smooth Fade Fix) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
@@ -505,7 +508,6 @@ function processTurn() {
     if (rows.length > 0 || cols.length > 0) {
         isAnimating = true;
 
-        // アニメーションクラス付与
         rows.forEach(y => {
             for(let x=0; x<BOARD_SIZE; x++) document.getElementById(`c-${y}-${x}`).classList.add('clearing');
         });
@@ -514,11 +516,10 @@ function processTurn() {
         });
 
         setTimeout(() => {
-            // 論理データを削除
             rows.forEach(y => board[y].fill(0));
             cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
             
-            // アニメーションクラスを強制削除 (ここが修正ポイント)
+            // アニメーションクラスを削除し、マスの状態をリセット
             document.querySelectorAll('.clearing').forEach(el => el.classList.remove('clearing'));
 
             if (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) combo++;
