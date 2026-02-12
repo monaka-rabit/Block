@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Rotation Costs Turn</title>
+    <title>Score Puzzle 7x7 - Dual Rotation</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -46,7 +46,7 @@
             max-width: 500px;
         }
 
-        /* --- 上部パネル (Score, Limit, Keep) --- */
+        /* --- 上部パネル --- */
         .top-panels {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -181,17 +181,26 @@
             background: rgba(231, 76, 60, 0.15);
         }
 
-        /* --- 操作ボタン --- */
-        .btn-group { display: flex; gap: 15px; margin-top: 5px; }
+        /* --- 操作ボタン (3つ並べるために調整) --- */
+        .btn-group { 
+            display: flex; 
+            gap: 5px; 
+            margin-top: 5px; 
+            width: 100%;
+            justify-content: center;
+        }
         button {
-            padding: 10px 20px;
+            padding: 10px 10px; /* 横幅を少し節約 */
+            flex: 1;
+            max-width: 120px;
             background: #34495e;
             color: #fff;
             border: 1px solid #7f8c8d;
-            border-radius: 20px;
+            border-radius: 10px;
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            white-space: nowrap;
         }
         button:active { transform: translateY(2px); background: #2c3e50; }
 
@@ -253,7 +262,8 @@
         </div>
 
         <div class="btn-group">
-            <button onclick="rotateSelectedHand()">回転 (-1T)</button>
+            <button onclick="rotateLeft()">左回転 (-1T)</button>
+            <button onclick="rotateRight()">右回転 (-1T)</button>
             <button onclick="flipSelectedHand()">反転 (-1T)</button>
         </div>
     </div>
@@ -266,7 +276,7 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Rotation Costs Turn) */
+/** * Score Puzzle 7x7 Logic (Dual Rotation) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
@@ -321,7 +331,6 @@ function initGame() {
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
     let key;
-    // 小さいピースの出現頻度を下げる
     for (let i = 0; i < 2; i++) {
         key = keys[Math.floor(Math.random() * keys.length)];
         if (key === '1x1' || key === 'I2' || key === 'O') {
@@ -331,7 +340,7 @@ function generateRandomPiece() {
     }
     let matrix = SHAPES[key];
     const rots = Math.floor(Math.random() * 4);
-    for(let i=0; i<rots; i++) matrix = rotateMatrix(matrix);
+    for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
     return { matrix: matrix };
 }
@@ -344,8 +353,18 @@ function generateValidPiece() {
     return { matrix: [[1]] };
 }
 
-function rotateMatrix(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
-function flipMatrix(m) { return m.map(row => [...row].reverse()); }
+// 右回転 (Clockwise)
+function rotateMatrixCW(m) { 
+    return m[0].map((val, index) => m.map(row => row[index]).reverse()); 
+}
+// 左回転 (Counter-Clockwise)
+function rotateMatrixCCW(m) {
+    return m[0].map((val, index) => m.map(row => row[row.length - 1 - index]));
+}
+// 反転
+function flipMatrix(m) { 
+    return m.map(row => [...row].reverse()); 
+}
 
 function canPlace(matrix, startX, startY) {
     for (let r = 0; r < matrix.length; r++) {
@@ -505,22 +524,27 @@ function processTurn() {
 }
 
 /* --- 回転・反転ロジック (ターン消費付き) --- */
-function consumeTurnAction(actionType) {
+function consumeTurnAction() {
     if (isGameOver) return;
-    
-    // 既にLIMITギリギリでも実行は許可するが、即死はさせない（次のターンで判定）
-    // または、即座にターン消費としてカウントしてゲームオーバーにするなら以下を実行
     turnsSinceClear++; 
     turnsSinceCombo++;
-    checkGameOver(); // これでLIMITを超えたらゲームオーバー画面へ
+    checkGameOver(); 
     updateUI();
 }
 
-function rotateSelectedHand() {
+function rotateRight() {
     if (isGameOver) return;
     let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
     if(t) { 
-        t.matrix = rotateMatrix(t.matrix); 
+        t.matrix = rotateMatrixCW(t.matrix); 
+        consumeTurnAction();
+    }
+}
+function rotateLeft() {
+    if (isGameOver) return;
+    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
+    if(t) { 
+        t.matrix = rotateMatrixCCW(t.matrix); 
         consumeTurnAction();
     }
 }
@@ -535,12 +559,10 @@ function flipSelectedHand() {
 
 /* --- ゲームオーバー判定 --- */
 function checkGameOver() {
-    // ターン制限チェック
     if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) {
         triggerGameOver("タイムアップ (5ターン消去なし)");
         return;
     }
-    // 配置不能チェック
     let canMove = false;
     hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
     if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
@@ -574,9 +596,7 @@ function updateUI() {
     }
     document.getElementById('score').innerText = score.toLocaleString();
     
-    // LIMIT表示
     const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
-    // 0未満にならないように表示制御 (ゲームオーバー判定前の一瞬の表示ズレ防止)
     const displayLimit = Math.max(0, limit);
     document.getElementById('turn-limit').innerText = displayLimit;
     
