@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 9x9 - Visible Fixed</title>
+    <title>Score Puzzle 9x9 - Mobile Optimized</title>
     <style>
         :root {
             --bg-color: #2c3e50;
             --grid-color: #34495e;
             --cell-empty: #ecf0f1;
-            --cell-filled: #f1c40f; /* 黄色 */
+            --cell-filled: #f1c40f;
             --cell-preview: rgba(241, 196, 15, 0.5);
             --text: #ffffff;
             --accent: #f1c40f;
             --danger: #e74c3c;
             --selected: #e74c3c;
+            /* 盤面の1マスのサイズを計算（画面幅に合わせて可変） */
+            --board-size: min(90vw, 400px);
+            --cell-size: calc((var(--board-size) - 20px) / 9);
         }
-
-        * { box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -28,254 +29,193 @@
             align-items: center;
             margin: 0;
             padding: 5px;
-            height: 100vh; /* 画面の高さに合わせる */
-            width: 100vw;
-            overflow: hidden; /* スクロール禁止 */
             user-select: none;
             touch-action: none;
+            overscroll-behavior: none;
+            overflow: hidden;
         }
 
-        h1 { margin: 0 0 5px 0; font-size: 1.2rem; flex-shrink: 0; }
+        h1 { margin: 5px 0; font-size: 1.2rem; }
 
-        /* 全体レイアウト */
-        .game-layout {
-            display: grid;
-            width: 100%;
-            height: 100%;
-            max-width: 600px;
-            gap: 5px;
-            /* 上から: 情報, 盤面(可変), 手札, ボタン */
-            grid-template-rows: auto 1fr auto auto;
-            grid-template-columns: 1fr 60px; /* 右側にNEXT用の列 */
-            grid-template-areas:
-                "stats stats"
-                "board next"
-                "hand  hand"
-                "ctrl  ctrl";
-        }
-
-        /* PC用レイアウト */
-        @media (min-width: 700px) {
-            .game-layout {
-                max-width: 900px;
-                grid-template-columns: 160px 1fr 160px;
-                grid-template-rows: 1fr auto;
-                grid-template-areas:
-                    "stats-left board stats-right"
-                    "stats-left hand  stats-right";
-            }
-            .btn-area { grid-area: hand; margin-top: 100px; pointer-events: none; }
-            .btn-area button { pointer-events: auto; }
-        }
-
-        /* 1. ステータスエリア */
-        .stats-area {
-            grid-area: stats;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            background: rgba(0,0,0,0.2);
-            padding: 5px;
-            border-radius: 5px;
-        }
-        @media (min-width: 700px) {
-            .stats-area { grid-area: stats-left; flex-direction: column; justify-content: flex-start; gap: 20px; padding: 20px 5px; }
-        }
-
-        .info-item { text-align: center; }
-        .info-item .label { font-size: 0.7rem; color: #ccc; }
-        .info-item .val { font-size: 1.2rem; font-weight: bold; }
-        #score { color: #2ecc71; }
-        #combo { color: #f1c40f; }
-
-        /* KEEP */
-        .keep-container {
+        .game-container {
             display: flex;
             flex-direction: column;
-            align-items: center;
-        }
-        
-        /* 2. 盤面エリア (ここを修正：CSSのみでサイズ制御) */
-        .board-wrapper {
-            grid-area: board;
-            display: flex;
-            justify-content: center;
+            gap: 5px;
             align-items: center;
             width: 100%;
-            height: 100%;
-            overflow: hidden; 
-            padding: 5px;
+            max-width: 500px;
         }
 
+        /* 上部ステータスエリア */
+        .top-panels {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .info-box {
+            background: rgba(0,0,0,0.3);
+            padding: 5px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-box h2, .info-box h3 { margin: 0; font-size: 1rem; }
+        .info-box div { font-size: 0.6rem; color: #ccc; }
+
+        /* 盤面 */
         #board {
             display: grid;
-            /* 9分割をCSSで強制 */
-            grid-template-columns: repeat(9, 1fr);
-            grid-template-rows: repeat(9, 1fr);
-            gap: 2px;
+            grid-template-columns: repeat(9, var(--cell-size));
+            grid-template-rows: repeat(9, var(--cell-size));
+            gap: 1px;
             background-color: var(--grid-color);
-            padding: 3px;
+            padding: 4px;
             border-radius: 4px;
-            /* 縦横比を1:1に保ちつつ、親要素に収まる最大サイズになる */
-            aspect-ratio: 1 / 1;
-            width: auto;
-            height: auto;
-            max-width: 100%;
-            max-height: 100%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
             background-color: var(--cell-empty);
             border-radius: 2px;
-            /* 中身が空でもつぶれないようにする */
-            min-width: 0;
-            min-height: 0;
-            width: 100%;
-            height: 100%;
         }
-        .cell.filled { 
-            background-color: var(--cell-filled);
-            box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
-        }
+        .cell.filled { background-color: var(--cell-filled); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
 
-        /* 3. NEXTエリア (縦並び) */
-        .next-area {
-            grid-area: next;
+        /* NEXT / KEEP エリア */
+        .bottom-controls {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            gap: 5px;
+        }
+
+        .next-container {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            padding: 5px;
+            border-radius: 8px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background: rgba(0,0,0,0.2);
-            border-radius: 5px;
-            padding: 5px 0;
-            gap: 5px;
-            overflow-y: auto;
         }
-        @media (min-width: 700px) {
-            .next-area { grid-area: stats-right; padding: 20px 5px; }
+
+        #next-list {
+            display: flex;
+            flex-direction: row; /* スマホでは横並び */
+            gap: 4px;
+            overflow-x: auto;
+            padding: 2px;
         }
-        .next-label { font-size: 0.7rem; color: #ccc; margin-bottom: 5px; writing-mode: vertical-rl; }
-        @media (min-width: 700px) { .next-label { writing-mode: horizontal-tb; } }
 
         .next-piece-box {
-            width: 44px; height: 44px; /* 固定サイズで見やすく */
-            background: rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.2);
             border-radius: 4px;
+            width: 40px;
+            height: 40px;
             display: flex;
             justify-content: center;
             align-items: center;
             flex-shrink: 0;
         }
 
-        /* 4. 手札エリア */
+        /* 手札 */
         #hand-container {
-            grid-area: hand;
             display: flex;
+            gap: 5px;
+            margin-top: 10px;
             justify-content: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-            padding: 5px;
-            height: 80px; 
-            align-items: center;
+            width: 100%;
         }
 
         .piece-slot {
-            width: 70px; height: 70px;
+            width: calc(var(--board-size) / 4);
+            height: calc(var(--board-size) / 4);
             background: rgba(0, 0, 0, 0.2);
             border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
+            border-radius: 8px;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
         }
-        .piece-slot.keep { width: 50px; height: 50px; }
-        
+
         .piece-slot.selected {
             border-color: var(--selected);
             background: rgba(231, 76, 60, 0.15);
         }
 
-        /* 5. ボタン */
-        .btn-area {
-            grid-area: ctrl;
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            padding: 5px;
-        }
-        button {
-            padding: 10px 20px; background: #34495e; color: #fff;
-            border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
-        }
-
-        /* ドラッグ関連 */
         .draggable-wrapper {
-            cursor: grab;
             padding: 5px;
-            touch-action: none; 
+            touch-action: none;
         }
-        .draggable-wrapper:active { cursor: grabbing; opacity: 0.5; }
 
         .drag-ghost {
-            position: fixed; pointer-events: none; z-index: 1000;
-            opacity: 0.9; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.8;
         }
 
-        .piece-grid { display: grid; gap: 1px; pointer-events: none; }
-        .mini-cell { box-sizing: border-box; }
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        button {
+            padding: 8px 15px; background: #34495e; color: #fff;
+            border: 1px solid #555; border-radius: 4px; font-weight: bold; font-size: 0.9rem;
+        }
 
         #game-over {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); display: none;
             flex-direction: column; justify-content: center; align-items: center; z-index: 2000;
         }
+        
         .danger { color: var(--danger); animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* PC等広い画面の場合の微調整 */
+        @media (min-width: 600px) {
+            :root { --board-size: 450px; }
+            #next-list { flex-direction: column; }
+            .game-container { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>Score Puzzle 9x9</h1>
+    <h1>Score Puzzle</h1>
 
-    <div class="game-layout">
-        <div class="stats-area">
-            <div class="info-item">
-                <div class="label">SCORE</div>
-                <div class="val" id="score">0</div>
+    <div class="game-container">
+        <div class="top-panels">
+            <div class="info-box">
+                <div>SCORE</div>
+                <h2 id="score" style="color: #2ecc71;">0</h2>
             </div>
-            <div class="info-item">
-                <div class="label">COMBO</div>
-                <div class="val" id="combo">0</div>
+            <div class="info-box" id="turn-box">
+                <div>LIMIT</div>
+                <h2 id="turn-limit">5</h2>
             </div>
-            <div class="info-item">
-                <div class="label">TURN</div>
-                <div class="val" id="turn-limit">5</div>
-            </div>
-            <div class="keep-container">
-                <div class="label" style="font-size:0.6rem;">KEEP</div>
-                <div id="keep-slot" class="piece-slot keep"
-                     onclick="selectHand(-1)"
-                     ondragover="handleKeepDragOver(event)"
-                     ondragleave="handleKeepDragLeave(event)"
-                     ondrop="handleKeepDrop(event)">
-                     <span id="keep-text" style="color:gray; font-size:0.6em; position:absolute;">Drop</span>
+            <div class="info-box">
+                <div>KEEP</div>
+                <div id="keep-slot" class="piece-slot" onclick="selectHand(-1)" style="width: 50px; height: 50px; margin: 0 auto;">
+                    <span id="keep-text" style="color:gray; font-size:0.5rem; position:absolute;">KEEP</span>
                 </div>
             </div>
         </div>
 
-        <div class="board-wrapper">
-            <div id="board" 
-                 ondragover="handleDragOver(event)" 
-                 ondragleave="handleDragLeave(event)" 
-                 ondrop="handleDrop(event)">
-                 </div>
+        <div id="board" 
+             ondragover="handleDragOver(event)" 
+             ondrop="handleDrop(event)">
         </div>
 
-        <div class="next-area">
-            <div class="next-label">NEXT</div>
-            <div id="next-list" style="display:contents;"></div>
+        <div class="next-container">
+            <div style="font-size: 0.6rem; margin-bottom: 2px;">NEXT</div>
+            <div id="next-list"></div>
         </div>
 
         <div id="hand-container">
@@ -284,26 +224,26 @@
             <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
         </div>
 
-        <div class="btn-area">
-            <button onclick="rotateSelectedHand()">回転</button>
-            <button onclick="flipSelectedHand()">反転</button>
+        <div class="btn-group">
+            <button onclick="rotateSelectedHand()">回転 ↻</button>
+            <button onclick="flipSelectedHand()">反転 ⇄</button>
         </div>
     </div>
 
     <div id="game-over">
         <h1 style="color: #e74c3c;">GAME OVER</h1>
-        <p id="game-over-reason" style="font-size: 1.2em; color:white; margin-bottom: 20px;"></p>
-        <h2 style="color: #f1c40f;">Final: <span id="final-score"></span></h2>
-        <button onclick="initGame()" style="background: #2ecc71; padding: 15px 30px; font-size: 1.2em;">RETRY</button>
+        <p id="game-over-reason" style="font-size: 1rem; color:white;"></p>
+        <h2 style="color: #f1c40f;">Score: <span id="final-score"></span></h2>
+        <button onclick="initGame()" style="background: #2ecc71; padding: 15px 30px;">RETRY</button>
     </div>
 
 <script>
-/** 設定 */
+/** ロジック部分は元の機能を維持しつつ、サイズ調整用変数を適用 */
 const BOARD_SIZE = 9;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
-// 手札の描画サイズ
-const HAND_CELL_SIZE = 14; 
+// スマホ用に少し小さめに設定
+const HAND_CELL_SIZE = 12; 
 const HAND_PADDING = 5;
 
 const SHAPES = {
@@ -312,7 +252,7 @@ const SHAPES = {
     '3x3': [[1,1,1],[1,1,1],[1,1,1]],
     'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]],
     'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]],
-    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[1,1]]
+    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]]
 };
 
 let board = [], score = 0, combo = 0;
@@ -329,34 +269,16 @@ function initGame() {
     isGameOver = false;
     board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
     score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
-    
     pieceQueue = [];
     for(let i=0; i<8; i++) pieceQueue.push(generateValidPiece());
-    
     hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
     keepPiece = null;
-    draggingPieceInfo = null;
     selectedHandIndex = 0;
-
     document.getElementById('game-over').style.display = 'none';
-    
     createBoardElements();
     updateUI();
 }
 
-/** 盤面生成 (CSSで制御するためシンプルに) */
-function createBoardElements() {
-    const el = document.getElementById('board');
-    el.innerHTML = '';
-    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
-        const c = document.createElement('div');
-        c.className = 'cell'; 
-        c.id = `c-${y}-${x}`;
-        el.appendChild(c);
-    }
-}
-
-/** ロジック */
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
     const key = keys[Math.floor(Math.random() * keys.length)];
@@ -396,7 +318,6 @@ function canPlaceAnywhere(matrix) {
     return false;
 }
 
-/** 選択機能 */
 function selectHand(index) {
     selectedHandIndex = index;
     [0, 1, 2].forEach(i => {
@@ -407,58 +328,34 @@ function selectHand(index) {
     if(kSlot) index === -1 ? kSlot.classList.add('selected') : kSlot.classList.remove('selected');
 }
 
-/** ドラッグロジック */
+/** PC & Mobile Interaction */
 function startDragLogic(source, index, clientX, clientY, targetElement) {
     const piece = (source === 'hand') ? hand[index] : keepPiece;
     if (!piece) return;
-
     selectHand(source === 'hand' ? index : -1);
-
     const rect = targetElement.getBoundingClientRect();
-    const relativeX = clientX - rect.left;
-    const relativeY = clientY - rect.top;
-    
-    // 手札内のセルサイズ(14px)で計算
-    const internalX = relativeX - HAND_PADDING;
-    const internalY = relativeY - HAND_PADDING;
-    const colIndex = Math.floor(internalX / HAND_CELL_SIZE);
-    const rowIndex = Math.floor(internalY / HAND_CELL_SIZE);
-
     draggingPieceInfo = {
         matrix: piece.matrix,
         source: source,
         index: index,
-        offsetCol: Math.max(0, colIndex), 
-        offsetRow: Math.max(0, rowIndex)
+        offsetCol: Math.floor(piece.matrix[0].length / 2),
+        offsetRow: Math.floor(piece.matrix.length / 2)
     };
-    dragOffset.x = relativeX;
-    dragOffset.y = relativeY;
+    dragOffset.x = clientX - rect.left;
+    dragOffset.y = clientY - rect.top;
 }
 
 function handleDragStart(e, source, index) {
     if (isGameOver) { e.preventDefault(); return; }
     startDragLogic(source, index, e.clientX, e.clientY, e.currentTarget);
-    e.dataTransfer.setData('text/plain', '');
-    e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => { if(e.target) e.target.classList.add('dragging'); }, 0);
-}
-
-function handleDragEnd(e) {
-    if(e.target) e.target.classList.remove('dragging');
-    draggingPieceInfo = null;
-    clearPreview();
-    selectHand(selectedHandIndex);
 }
 
 function handleDragOver(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
     if (!draggingPieceInfo) return;
     const pos = getBoardCoords(e.clientX, e.clientY);
     updatePreview(pos.x, pos.y);
 }
-
-function handleDragLeave(e) { clearPreview(); }
 
 function handleDrop(e) {
     e.preventDefault();
@@ -466,12 +363,12 @@ function handleDrop(e) {
     if (isGameOver || !draggingPieceInfo) return;
     const pos = getBoardCoords(e.clientX, e.clientY);
     attemptPlace(pos.x, pos.y);
+    draggingPieceInfo = null;
 }
 
-/* Touch Events */
+// Touch Support
 function handleTouchStart(e, source, index) {
     if (isGameOver) return;
-    e.preventDefault(); 
     const touch = e.touches[0];
     startDragLogic(source, index, touch.clientX, touch.clientY, e.currentTarget);
     if (draggingPieceInfo) createDragGhost(source, index, touch.clientX, touch.clientY);
@@ -479,34 +376,27 @@ function handleTouchStart(e, source, index) {
 
 function handleTouchMove(e) {
     if (!draggingPieceInfo || !dragGhost) return;
-    e.preventDefault();
     const touch = e.touches[0];
-    dragGhost.style.left = (touch.clientX - dragOffset.x) + 'px';
-    dragGhost.style.top = (touch.clientY - dragOffset.y) + 'px';
+    dragGhost.style.left = (touch.clientX - 30) + 'px'; // 指で見えるように少しずらす
+    dragGhost.style.top = (touch.clientY - 60) + 'px';
     const pos = getBoardCoords(touch.clientX, touch.clientY);
-    if (pos.valid) updatePreview(pos.x, pos.y);
-    else clearPreview();
+    pos.valid ? updatePreview(pos.x, pos.y) : clearPreview();
 }
 
 function handleTouchEnd(e) {
     if (!draggingPieceInfo) return;
-    e.preventDefault();
     const touch = e.changedTouches[0];
     const pos = getBoardCoords(touch.clientX, touch.clientY);
-
     if (pos.valid) {
         attemptPlace(pos.x, pos.y);
     } else if (draggingPieceInfo.source === 'hand') {
-        const keepRect = document.getElementById('keep-slot').getBoundingClientRect();
-        if (touch.clientX >= keepRect.left && touch.clientX <= keepRect.right &&
-            touch.clientY >= keepRect.top && touch.clientY <= keepRect.bottom) {
-            executeKeep();
-        }
+        const kRect = document.getElementById('keep-slot').getBoundingClientRect();
+        if (touch.clientX >= kRect.left && touch.clientX <= kRect.right &&
+            touch.clientY >= kRect.top && touch.clientY <= kRect.bottom) executeKeep();
     }
     removeDragGhost();
     draggingPieceInfo = null;
     clearPreview();
-    selectHand(selectedHandIndex);
 }
 
 function createDragGhost(source, index, x, y) {
@@ -514,88 +404,52 @@ function createDragGhost(source, index, x, y) {
     const piece = (source === 'hand') ? hand[index] : keepPiece;
     const ghost = document.createElement('div');
     ghost.className = 'drag-ghost';
-    const wrapper = document.createElement('div');
-    wrapper.className = 'draggable-wrapper';
-    wrapper.style.padding = HAND_PADDING + 'px';
-    wrapper.appendChild(createPieceElement(piece.matrix, HAND_CELL_SIZE));
-    ghost.appendChild(wrapper);
+    ghost.appendChild(createPieceElement(piece.matrix, 20)); // ゴーストは見やすく大きく
     document.body.appendChild(ghost);
-    ghost.style.left = (x - dragOffset.x) + 'px';
-    ghost.style.top = (y - dragOffset.y) + 'px';
     dragGhost = ghost;
 }
 
-function removeDragGhost() {
-    if (dragGhost && dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
-    dragGhost = null;
-}
+function removeDragGhost() { if (dragGhost) dragGhost.remove(); dragGhost = null; }
 
-/** 共通座標取得 */
 function getBoardCoords(clientX, clientY) {
-    const boardEl = document.getElementById('board');
-    const rect = boardEl.getBoundingClientRect();
-    if (clientX < rect.left || clientX > rect.right || 
-        clientY < rect.top || clientY > rect.bottom) {
+    const el = document.getElementById('board');
+    const rect = el.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom)
         return { x: -1, y: -1, valid: false };
-    }
-    
-    // 現在の実際のサイズからセルサイズを逆算
     const cellSize = rect.width / BOARD_SIZE;
-    
-    const x = Math.floor((clientX - rect.left) / cellSize);
-    const y = Math.floor((clientY - rect.top) / cellSize);
-    
-    if(x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE) {
-        return { x, y, valid: true };
-    }
-    return { x: -1, y: -1, valid: false };
+    return {
+        x: Math.floor((clientX - rect.left) / cellSize),
+        y: Math.floor((clientY - rect.top) / cellSize),
+        valid: true
+    };
 }
 
 function updatePreview(boardX, boardY) {
-    const targetX = boardX - draggingPieceInfo.offsetCol;
-    const targetY = boardY - draggingPieceInfo.offsetRow;
+    const tx = boardX - draggingPieceInfo.offsetCol;
+    const ty = boardY - draggingPieceInfo.offsetRow;
     clearPreview();
-    if (canPlace(draggingPieceInfo.matrix, targetX, targetY)) {
-        drawPreview(draggingPieceInfo.matrix, targetX, targetY);
-    }
+    if (canPlace(draggingPieceInfo.matrix, tx, ty)) drawPreview(draggingPieceInfo.matrix, tx, ty);
 }
 
-function attemptPlace(boardX, boardY) {
-    const targetX = boardX - draggingPieceInfo.offsetCol;
-    const targetY = boardY - draggingPieceInfo.offsetRow;
-
-    if (canPlace(draggingPieceInfo.matrix, targetX, targetY)) {
-        const matrix = draggingPieceInfo.matrix;
-        for (let r = 0; r < matrix.length; r++) {
-            for (let c = 0; c < matrix[0].length; c++) {
-                if (matrix[r][c] === 1) board[targetY + r][targetX + c] = 1;
+function attemptPlace(bx, by) {
+    const tx = bx - draggingPieceInfo.offsetCol;
+    const ty = by - draggingPieceInfo.offsetRow;
+    if (canPlace(draggingPieceInfo.matrix, tx, ty)) {
+        const m = draggingPieceInfo.matrix;
+        for (let r = 0; r < m.length; r++) {
+            for (let c = 0; c < m[0].length; c++) {
+                if (m[r][c] === 1) board[ty + r][tx + c] = 1;
             }
         }
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
             pieceQueue.push(generateValidPiece());
-        } else if (draggingPieceInfo.source === 'keep') {
+        } else {
             keepPiece = null;
         }
         processTurn();
         updateUI();
     }
-}
-
-function handleKeepDragOver(e) {
-    e.preventDefault();
-    if (draggingPieceInfo && draggingPieceInfo.source === 'hand') {
-        e.dataTransfer.dropEffect = 'move';
-        document.getElementById('keep-slot').classList.add('drag-over');
-    }
-}
-function handleKeepDragLeave(e) { document.getElementById('keep-slot').classList.remove('drag-over'); }
-function handleKeepDrop(e) {
-    e.preventDefault();
-    document.getElementById('keep-slot').classList.remove('drag-over');
-    if (isGameOver || !draggingPieceInfo || draggingPieceInfo.source !== 'hand') return;
-    executeKeep();
-    draggingPieceInfo = null;
 }
 
 function executeKeep() {
@@ -606,9 +460,9 @@ function executeKeep() {
         hand[idx] = pieceQueue.shift();
         pieceQueue.push(generateValidPiece());
     } else {
-        const temp = keepPiece;
+        const tmp = keepPiece;
         keepPiece = target;
-        hand[idx] = temp;
+        hand[idx] = tmp;
     }
     updateUI();
     checkGameOver();
@@ -624,8 +478,7 @@ function processTurn() {
         cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
         combo = (turnsSinceCombo <= COMBO_TIMEOUT_TURNS) ? combo + 1 : 1;
         turnsSinceCombo = 0; turnsSinceClear = 0;
-        let count = rows.length + cols.length;
-        score += Math.floor(count * BOARD_SIZE * 100 * (1 + (combo-1)*0.5));
+        score += Math.floor((rows.length + cols.length) * 100 * (1 + (combo-1)*0.5));
     } else {
         turnsSinceClear++; turnsSinceCombo++;
     }
@@ -633,124 +486,90 @@ function processTurn() {
 }
 
 function checkGameOver() {
-    if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) { triggerGameOver("タイムアップ！"); return; }
-    let canMove = false;
-    hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
-    if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
-    if (!canMove) {
-        if (keepPiece === null) return;
-        triggerGameOver("置ける場所がありません");
-    }
+    if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) return triggerGameOver("TIME UP!");
+    let canMove = hand.some(p => p && canPlaceAnywhere(p.matrix)) || (keepPiece && canPlaceAnywhere(keepPiece.matrix));
+    if (!canMove) triggerGameOver("NO MORE MOVES");
 }
 
 function triggerGameOver(reason) {
     isGameOver = true;
-    document.getElementById('final-score').innerText = score.toLocaleString();
+    document.getElementById('final-score').innerText = score;
     document.getElementById('game-over-reason').innerText = reason;
     document.getElementById('game-over').style.display = 'flex';
 }
 
-function updateBoardVisuals() {
+function createBoardElements() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
     for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
-        const cell = document.getElementById(`c-${y}-${x}`);
-        if(cell) {
-            cell.className = 'cell' + (board[y][x] ? ' filled' : '');
-        }
+        const c = document.createElement('div');
+        c.className = 'cell'; c.id = `c-${y}-${x}`;
+        el.appendChild(c);
     }
 }
 
 function updateUI() {
-    updateBoardVisuals();
-    
-    document.getElementById('score').innerText = score.toLocaleString();
-    document.getElementById('combo').innerText = combo;
+    for(let y=0; y<BOARD_SIZE; y++) for(let x=0; x<BOARD_SIZE; x++) {
+        const cell = document.getElementById(`c-${y}-${x}`);
+        cell.className = 'cell' + (board[y][x] ? ' filled' : '');
+    }
+    document.getElementById('score').innerText = score;
     const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
-    const tBox = document.getElementById('turn-box');
     document.getElementById('turn-limit').innerText = limit;
-    if(limit <= 2) tBox.classList.add('danger'); else tBox.classList.remove('danger');
+    limit <= 2 ? document.getElementById('turn-box').classList.add('danger') : document.getElementById('turn-box').classList.remove('danger');
 
-    // 手札
     hand.forEach((p, i) => {
         const slot = document.getElementById(`hand-${i}`);
         slot.innerHTML = '';
-        if (i === selectedHandIndex) slot.classList.add('selected');
-        else slot.classList.remove('selected');
-
         if (p) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'draggable-wrapper';
-            wrapper.draggable = true;
-            wrapper.ondragstart = (e) => handleDragStart(e, 'hand', i);
-            wrapper.ondragend = handleDragEnd;
-            wrapper.ontouchstart = (e) => handleTouchStart(e, 'hand', i);
-            wrapper.ontouchmove = handleTouchMove;
-            wrapper.ontouchend = handleTouchEnd;
-            wrapper.appendChild(createPieceElement(p.matrix, HAND_CELL_SIZE));
-            slot.appendChild(wrapper);
+            const w = document.createElement('div');
+            w.className = 'draggable-wrapper';
+            w.ontouchstart = (e) => handleTouchStart(e, 'hand', i);
+            w.ontouchmove = handleTouchMove;
+            w.ontouchend = handleTouchEnd;
+            w.appendChild(createPieceElement(p.matrix, 10));
+            slot.appendChild(w);
         }
     });
 
-    // Keep
     const kSlot = document.getElementById('keep-slot');
     const kText = document.getElementById('keep-text');
-    kSlot.innerHTML = '';
-    if (selectedHandIndex === -1) kSlot.classList.add('selected');
-    else kSlot.classList.remove('selected');
-
-    if(kText) kSlot.appendChild(kText);
-
+    kSlot.innerHTML = ''; kSlot.appendChild(kText);
     if (keepPiece) {
-        if(kText) kText.style.display = 'none';
-        const wrapper = document.createElement('div');
-        wrapper.className = 'draggable-wrapper';
-        wrapper.draggable = true;
-        wrapper.ondragstart = (e) => handleDragStart(e, 'keep', 0);
-        wrapper.ondragend = handleDragEnd;
-        wrapper.ontouchstart = (e) => handleTouchStart(e, 'keep', 0);
-        wrapper.ontouchmove = handleTouchMove;
-        wrapper.ontouchend = handleTouchEnd;
-        wrapper.appendChild(createPieceElement(keepPiece.matrix, HAND_CELL_SIZE));
-        kSlot.appendChild(wrapper);
-    } else {
-        if(kText) kText.style.display = 'block';
-    }
+        kText.style.display = 'none';
+        const w = document.createElement('div');
+        w.className = 'draggable-wrapper';
+        w.ontouchstart = (e) => handleTouchStart(e, 'keep', 0);
+        w.appendChild(createPieceElement(keepPiece.matrix, 8));
+        kSlot.appendChild(w);
+    } else { kText.style.display = 'block'; }
 
-    // Next
     const nList = document.getElementById('next-list');
     nList.innerHTML = '';
     pieceQueue.slice(0, 5).forEach(p => {
         const box = document.createElement('div');
         box.className = 'next-piece-box';
-        box.appendChild(createPieceElement(p.matrix, 12)); 
+        box.appendChild(createPieceElement(p.matrix, 6));
         nList.appendChild(box);
     });
 }
 
 function createPieceElement(matrix, cellSize) {
-    const h = matrix.length;
-    const w = matrix[0].length;
-    const grid = document.createElement('div');
-    grid.className = 'piece-grid';
-    grid.style.width = (w * cellSize) + 'px';
-    grid.style.height = (h * cellSize) + 'px';
-    grid.style.gridTemplateColumns = `repeat(${w}, ${cellSize}px)`;
-    grid.style.gridTemplateRows = `repeat(${h}, ${cellSize}px)`;
-    
+    const h = matrix.length, w = matrix[0].length;
+    const g = document.createElement('div');
+    g.style.display = 'grid';
+    g.style.gridTemplateColumns = `repeat(${w}, ${cellSize}px)`;
+    g.style.gap = '1px';
     for(let r=0; r<h; r++) for(let c=0; c<w; c++) {
         const cell = document.createElement('div');
-        cell.className = 'mini-cell';
-        cell.style.width = cellSize + 'px';
-        cell.style.height = cellSize + 'px';
+        cell.style.width = cell.style.height = cellSize + 'px';
         if (matrix[r][c] === 1) {
             cell.style.backgroundColor = '#f1c40f';
-            cell.style.border = '1px solid rgba(0,0,0,0.2)';
-            cell.style.borderRadius = '2px';
-        } else {
-            cell.style.backgroundColor = 'transparent';
+            cell.style.borderRadius = '1px';
         }
-        grid.appendChild(cell);
+        g.appendChild(cell);
     }
-    return grid;
+    return g;
 }
 
 function drawPreview(matrix, sx, sy) {
@@ -761,30 +580,15 @@ function drawPreview(matrix, sx, sy) {
         }
     }
 }
-function clearPreview() {
-    document.querySelectorAll('.drag-preview').forEach(e => e.classList.remove('drag-preview'));
-}
+function clearPreview() { document.querySelectorAll('.drag-preview').forEach(e => e.classList.remove('drag-preview')); }
 
 function rotateSelectedHand() {
-    let target = null;
-    if (selectedHandIndex === -1) target = keepPiece;
-    else target = hand[selectedHandIndex];
-
-    if(target) {
-        target.matrix = rotateMatrix(target.matrix);
-        updateUI();
-    }
+    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
+    if(t) { t.matrix = rotateMatrix(t.matrix); updateUI(); }
 }
-
 function flipSelectedHand() {
-    let target = null;
-    if (selectedHandIndex === -1) target = keepPiece;
-    else target = hand[selectedHandIndex];
-
-    if(target) {
-        target.matrix = flipMatrix(target.matrix);
-        updateUI();
-    }
+    let t = selectedHandIndex === -1 ? keepPiece : hand[selectedHandIndex];
+    if(t) { t.matrix = flipMatrix(t.matrix); updateUI(); }
 }
 </script>
 </body>
