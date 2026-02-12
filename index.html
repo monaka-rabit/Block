@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Score Puzzle 7x7 - Mobile Fit</title>
+    <title>Score Puzzle 7x7 - Adjusted Difficulty</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -15,262 +15,120 @@
             --accent: #f1c40f;
             --danger: #e74c3c;
             --selected: #e74c3c;
-            
-            /* 【重要】画面サイズ計算の修正 
-               横幅(92vw) または 縦幅の50%(50dvh) のうち、小さい方を基準にする。
-               これにより、縦長の画面でも横長の画面でも、盤面が大きすぎてボタンが隠れるのを防ぐ。
-            */
             --board-size: min(92vw, 50dvh, 450px);
             --cell-size: calc((var(--board-size) - 20px) / 7);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', sans-serif;
             background-color: var(--bg-color);
             color: var(--text);
-            margin: 0;
-            padding: 0;
-            user-select: none;
-            touch-action: none;
-            overscroll-behavior: none;
-            overflow: hidden;
-            
-            /* 画面の高さを動的に取得し、フレックスボックスで配置 */
-            height: 100dvh; /* dvh: アドレスバーを除いた高さ */
-            width: 100vw;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            
-            /* iPhoneの下部バー対策 */
+            margin: 0; padding: 0;
+            user-select: none; touch-action: none; overscroll-behavior: none; overflow: hidden;
+            height: 100dvh; width: 100vw;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             padding-bottom: env(safe-area-inset-bottom); 
         }
 
-        h1 { 
-            margin: 0; 
-            padding: 5px 0;
-            font-size: 1.2rem; 
-            flex-shrink: 0; /* タイトルは縮めない */
-        }
+        h1 { margin: 0; padding: 5px 0; font-size: 1.2rem; flex-shrink: 0; }
 
         .game-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-evenly; /* 縦方向のスペースを均等に配分 */
-            width: 100%;
-            height: 100%;
-            max-width: 500px;
-            padding: 5px 10px;
+            display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+            width: 100%; height: 100%; max-width: 500px; padding: 5px 10px;
         }
 
-        /* --- 上部パネル (4列) --- */
         .top-panels {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            gap: 5px;
-            width: var(--board-size);
-            flex-shrink: 0;
+            display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px;
+            width: var(--board-size); flex-shrink: 0;
         }
 
         .info-box {
-            background: rgba(0,0,0,0.3);
-            padding: 2px;
-            border-radius: 6px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 45px; /* 高さを少し固定 */
+            background: rgba(0,0,0,0.3); padding: 2px; border-radius: 6px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;
+            justify-content: center; height: 45px;
         }
         .info-box .label { font-size: 0.6rem; color: #bdc3c7; margin-bottom: 2px; }
         .info-box .value { font-size: 0.9rem; font-weight: bold; margin: 0; }
 
         #keep-slot {
-            width: 30px;
-            height: 30px;
-            margin: 0 auto;
-            border: 1px dashed #7f8c8d;
-            border-radius: 4px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
+            width: 30px; height: 30px; margin: 0 auto; border: 1px dashed #7f8c8d;
+            border-radius: 4px; display: flex; justify-content: center; align-items: center; position: relative;
         }
         #keep-slot.selected { border-color: var(--selected); background: rgba(231, 76, 60, 0.2); }
 
-        /* --- 盤面 --- */
         #board {
-            display: grid;
-            grid-template-columns: repeat(7, var(--cell-size));
-            grid-template-rows: repeat(7, var(--cell-size));
-            gap: 1px;
-            background-color: var(--grid-color);
-            padding: 4px;
-            border-radius: 4px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            flex-shrink: 0; /* 盤面は勝手に縮ませない（--board-sizeで制御） */
+            display: grid; grid-template-columns: repeat(7, var(--cell-size));
+            grid-template-rows: repeat(7, var(--cell-size)); gap: 1px;
+            background-color: var(--grid-color); padding: 4px; border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); flex-shrink: 0;
         }
 
         .cell {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            background-color: var(--cell-empty);
-            border-radius: 2px;
-            transition: background-color 0.1s; 
+            width: var(--cell-size); height: var(--cell-size); background-color: var(--cell-empty);
+            border-radius: 2px; transition: background-color 0.1s; 
         }
         .cell.filled { background-color: var(--cell-filled); box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
         .cell.drag-preview { background-color: var(--cell-preview) !important; }
-
-        .cell.clearing {
-            animation: flashFade 0.4s ease-out forwards;
-            z-index: 10;
-        }
+        .cell.clearing { animation: flashFade 0.4s ease-out forwards; z-index: 10; }
 
         @keyframes flashFade {
             0% { background-color: #fff; transform: scale(1.05); box-shadow: 0 0 10px #fff; }
             100% { background-color: var(--cell-empty); transform: scale(1); box-shadow: none; }
         }
 
-        /* --- NEXT リスト --- */
         .next-wrapper {
-            width: var(--board-size);
-            background: rgba(0,0,0,0.2);
-            padding: 4px 0;
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            flex-shrink: 0;
-            margin: 2px 0;
+            width: var(--board-size); background: rgba(0,0,0,0.2); padding: 4px 0;
+            border-radius: 8px; display: flex; justify-content: center; flex-shrink: 0; margin: 2px 0;
         }
-        #next-list {
-            display: flex;
-            flex-direction: row;
-            gap: 20px;
-            align-items: flex-end;
-        }
-        .next-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .next-label {
-            font-size: 0.6rem;
-            color: #95a5a6;
-            margin-bottom: 2px;
-            font-weight: bold;
-        }
+        #next-list { display: flex; flex-direction: row; gap: 20px; align-items: flex-end; }
+        .next-item { display: flex; flex-direction: column; align-items: center; }
+        .next-label { font-size: 0.6rem; color: #95a5a6; margin-bottom: 2px; font-weight: bold; }
         .next-piece-box {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: rgba(255,255,255,0.05);
-            border-radius: 4px;
-            width: 30px;
-            height: 30px;
-            transition: all 0.2s;
+            display: flex; justify-content: center; align-items: center;
+            background: rgba(255,255,255,0.05); border-radius: 4px; width: 30px; height: 30px; transition: all 0.2s;
         }
         .next-item.imminent .next-piece-box {
-            width: 40px;
-            height: 40px;
-            background: rgba(241, 196, 15, 0.15);
-            border: 1px solid var(--accent);
-            box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
+            width: 40px; height: 40px; background: rgba(241, 196, 15, 0.15);
+            border: 1px solid var(--accent); box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
         }
         .next-item.imminent .next-label { color: var(--accent); font-size: 0.7rem; }
 
-        /* --- 手札 --- */
         #hand-container {
-            display: flex;
-            gap: 5px; 
-            justify-content: space-between; 
-            width: var(--board-size); 
-            /* ここはフレックスで伸縮させず、コンテンツサイズに合わせる */
-            flex-shrink: 0; 
+            display: flex; gap: 5px; justify-content: space-between;
+            width: var(--board-size); flex-shrink: 0;
         }
-        
         .piece-slot-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            width: 32%;
-            position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 2px; width: 32%; position: relative;
         }
-
         .piece-life {
-            font-size: 0.7rem;
-            color: #bdc3c7;
-            font-weight: bold;
-            height: 1.2em; 
-            line-height: 1.2em;
-            visibility: visible;
+            font-size: 0.7rem; color: #bdc3c7; font-weight: bold; height: 1.2em; line-height: 1.2em; visibility: visible;
         }
         .piece-life.empty { visibility: hidden; }
         .piece-life.danger { color: #e74c3c; animation: blink 1s infinite; }
 
         .piece-slot {
-            width: 100%; 
-            aspect-ratio: 1; 
-            background: rgba(0, 0, 0, 0.2);
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
+            width: 100%; aspect-ratio: 1; background: rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255,255,255,0.1); border-radius: 8px;
+            display: flex; justify-content: center; align-items: center; position: relative;
         }
-        .piece-slot.selected {
-            border-color: var(--selected);
-            background: rgba(231, 76, 60, 0.15);
-        }
+        .piece-slot.selected { border-color: var(--selected); background: rgba(231, 76, 60, 0.15); }
 
-        /* --- ボタン --- */
         .btn-group { 
-            display: flex; 
-            gap: 10px; 
-            width: 100%;
-            justify-content: center;
-            /* 下部に少し余裕を持たせる */
-            margin-bottom: 5px;
-            flex-shrink: 0;
+            display: flex; gap: 10px; width: 100%; justify-content: center; margin-bottom: 5px; flex-shrink: 0;
         }
         button {
-            padding: 8px 0;
-            flex: 1;
-            max-width: 90px;
-            background: #34495e;
-            color: #fff;
-            border: 1px solid #7f8c8d;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            line-height: 1.1;
+            padding: 8px 0; flex: 1; max-width: 90px; background: #34495e; color: #fff;
+            border: 1px solid #7f8c8d; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
         }
         button:active { transform: translateY(2px); background: #2c3e50; }
-
-        .btn-icon {
-            font-size: 1.4rem;
-            margin-bottom: 2px;
-        }
-        .btn-cost {
-            font-size: 0.6rem;
-            color: #bdc3c7;
-            font-weight: normal;
-        }
+        .btn-icon { font-size: 1.4rem; margin-bottom: 2px; }
+        .btn-cost { font-size: 0.6rem; color: #bdc3c7; font-weight: normal; }
 
         .drag-ghost {
-            position: fixed; pointer-events: none; z-index: 9999;
-            opacity: 0.8; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
+            position: fixed; pointer-events: none; z-index: 9999; opacity: 0.8; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.5));
         }
 
         #game-over {
@@ -356,7 +214,7 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Mobile Optimized) */
+/** * Score Puzzle 7x7 Logic (Corrected Difficulty) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
@@ -365,19 +223,22 @@ const ANIMATION_DURATION = 400;
 const HARD_UNLOCK_THRESHOLD = 100;
 const PIECE_LIFE_LIMIT = 10; 
 
+// 【変更】最初から出現する形状 (3x3やCornerを追加)
 const BASIC_SHAPES = {
     '1x1': [[1]],
     'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]], 
     'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
-    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]]
-};
-
-const HARD_SHAPES = {
+    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
+    // 以下を追加 (最初から出る)
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
-    'Plus': [[0,1,0],[1,1,1],[0,1,0]], 
-    'U': [[1,0,1],[1,0,1],[1,1,1]], 
     'Corner': [[1,1,1],[1,0,0],[1,0,0]] 
+};
+
+// 【変更】100ライン消去で解禁される「ヤバい」形状
+const HARD_SHAPES = {
+    'Plus': [[0,1,0],[1,1,1],[0,1,0]], // 十字
+    'U': [[1,0,1],[1,0,1],[1,1,1]]     // コの字
 };
 
 let board = [];
@@ -427,6 +288,7 @@ function generateRandomPiece() {
     }
 
     let key;
+    // 小さいピースの出現頻度を下げる
     for (let i = 0; i < 4; i++) {
         key = pool[Math.floor(Math.random() * pool.length)];
         if (key === '1x1' || key === 'I2') {
