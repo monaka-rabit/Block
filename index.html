@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - 100 Lines</title>
+    <title>Score Puzzle 7x7 - Piece Life</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -175,6 +175,20 @@
             width: 100%;
             margin-top: 5px;
         }
+        .piece-slot-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .piece-life {
+            font-size: 0.7rem;
+            color: #bdc3c7;
+            font-weight: bold;
+        }
+        /* 寿命が少ない時の警告色 */
+        .piece-life.danger { color: #e74c3c; animation: blink 1s infinite; }
+
         .piece-slot {
             width: calc(var(--board-size) / 3.5);
             height: calc(var(--board-size) / 3.5);
@@ -264,9 +278,18 @@
         </div>
 
         <div id="hand-container">
-            <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
-            <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
-            <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
+            <div class="piece-slot-wrapper">
+                <div id="life-0" class="piece-life">あと10</div>
+                <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
+            </div>
+            <div class="piece-slot-wrapper">
+                <div id="life-1" class="piece-life">あと10</div>
+                <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
+            </div>
+            <div class="piece-slot-wrapper">
+                <div id="life-2" class="piece-life">あと10</div>
+                <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
+            </div>
         </div>
 
         <div class="btn-group">
@@ -284,15 +307,14 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (100 Lines) */
+/** * Score Puzzle 7x7 Logic (Piece Life Limit) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
-
-// 【変更点】100ライン消去で解禁
 const HARD_UNLOCK_THRESHOLD = 100;
+const PIECE_LIFE_LIMIT = 10; // 各ピースの寿命
 
 const BASIC_SHAPES = {
     '1x1': [[1]],
@@ -301,7 +323,6 @@ const BASIC_SHAPES = {
     'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]]
 };
 
-// 難しい形状 (100ライン消去後に解禁)
 const HARD_SHAPES = {
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
@@ -315,9 +336,9 @@ let score = 0;
 let combo = 0;
 let turnsSinceClear = 0;
 let turnsSinceCombo = 0;
-let totalLines = 0; // 消去したラインの総数
+let totalLines = 0;
 let pieceQueue = [];
-let hand = [null, null, null];
+let hand = [null, null, null]; // { matrix:[], life:10 } のオブジェクトが入る
 let keepPiece = null;
 let isGameOver = false;
 let isAnimating = false;
@@ -352,14 +373,11 @@ function initGame() {
 
 function generateRandomPiece() {
     let pool = Object.keys(BASIC_SHAPES);
-    
-    // 100ライン以上消去していたら、難しい形状を混ぜる
     if (totalLines >= HARD_UNLOCK_THRESHOLD) {
         pool = pool.concat(Object.keys(HARD_SHAPES));
     }
 
     let key;
-    // 小さいピースの出現率を下げる
     for (let i = 0; i < 4; i++) {
         key = pool[Math.floor(Math.random() * pool.length)];
         if (key === '1x1' || key === 'I2') {
@@ -372,22 +390,22 @@ function generateRandomPiece() {
     if (BASIC_SHAPES[key]) matrix = BASIC_SHAPES[key];
     else matrix = HARD_SHAPES[key];
     
-    // コピーして使用(参照渡し回避)
     matrix = JSON.parse(JSON.stringify(matrix));
 
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
-    return { matrix: matrix };
+    
+    // ピース生成時に寿命(life)を付与
+    return { matrix: matrix, life: PIECE_LIFE_LIMIT };
 }
 
-// 安全装置付き生成
 function generateValidPiece() {
     for (let i = 0; i < 50; i++) {
         let p = generateRandomPiece();
         if (canPlaceAnywhere(p.matrix)) return p;
     }
-    return { matrix: [[1]] };
+    return { matrix: [[1]], life: PIECE_LIFE_LIMIT };
 }
 
 function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
@@ -501,12 +519,18 @@ function attemptPlace(bx, by) {
         for (let r = 0; r < m.length; r++) for (let c = 0; c < m[0].length; c++) {
             if (m[r][c] === 1) board[ty + r][tx + c] = 1;
         }
+        
+        // ピースを消費して補充
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
             pieceQueue.push(generateValidPiece());
         } else {
             keepPiece = null;
         }
+
+        // ここでターン経過処理 (手札の寿命減少)
+        decreasePieceLife();
+        
         processTurn();
         updateUI();
     }
@@ -527,6 +551,17 @@ function executeKeep() {
     }
     updateUI();
     checkGameOver();
+}
+
+// 寿命を減らす処理
+function decreasePieceLife() {
+    hand.forEach((p, i) => {
+        if (p && i !== draggingPieceInfo?.index) { // 今置いた場所は補充されるので除外
+            p.life--;
+        }
+    });
+    // Keepの寿命も減らす？ ルール次第だが、今回は「手札」が対象なのでKeepは対象外とするか、
+    // あるいはKeepも対象にするならここで減らす。今回は「選択できる3つのブロック」という指定なので手札のみ。
 }
 
 function processTurn() {
@@ -556,7 +591,6 @@ function processTurn() {
             turnsSinceCombo = 0;
             turnsSinceClear = 0;
             
-            // ライン数を加算
             const linesCleared = rows.length + cols.length;
             totalLines += linesCleared;
             
@@ -578,6 +612,11 @@ function processTurn() {
 
 function consumeTurnAction() {
     if (isGameOver || isAnimating) return;
+    
+    // 回転・反転も1ターンとみなすなら寿命を減らすべきか？
+    // 指定では「10ターン以内に置かないと」なので、回転操作も時間経過とみなして減らす
+    decreasePieceLife();
+    
     turnsSinceClear++; 
     turnsSinceCombo++;
     checkGameOver(); 
@@ -601,10 +640,21 @@ function flipSelectedHand() {
 }
 
 function checkGameOver() {
+    // 1. LIMIT (消去なし制限)
     if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) {
         triggerGameOver("タイムアップ (5ターン消去なし)");
         return;
     }
+    
+    // 2. Piece Life (手札の寿命切れ)
+    for(let i=0; i<3; i++) {
+        if(hand[i] && hand[i].life <= 0) {
+            triggerGameOver("ブロックの寿命が尽きました");
+            return;
+        }
+    }
+
+    // 3. 配置不可
     let canMove = false;
     hand.forEach(p => { if(p && canPlaceAnywhere(p.matrix)) canMove = true; });
     if(keepPiece && canPlaceAnywhere(keepPiece.matrix)) canMove = true;
@@ -638,7 +688,7 @@ function updateUI() {
         }
     }
     document.getElementById('score').innerText = score.toLocaleString();
-    document.getElementById('line-count').innerText = totalLines; // 消去ライン数表示
+    document.getElementById('line-count').innerText = totalLines;
     
     const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
     const displayLimit = Math.max(0, limit);
@@ -647,12 +697,24 @@ function updateUI() {
     if(displayLimit <= 2) document.getElementById('turn-box').classList.add('danger');
     else document.getElementById('turn-box').classList.remove('danger');
 
+    // 手札と寿命の表示更新
     hand.forEach((p, i) => {
         const slot = document.getElementById(`hand-${i}`);
+        const lifeLabel = document.getElementById(`life-${i}`);
+        
         slot.innerHTML = '';
         if (i === selectedHandIndex) slot.classList.add('selected');
         else slot.classList.remove('selected');
-        if (p) slot.appendChild(createDraggableWrapper(p, 'hand', i));
+
+        if (p) {
+            lifeLabel.innerText = "あと" + p.life;
+            if(p.life <= 3) lifeLabel.classList.add('danger');
+            else lifeLabel.classList.remove('danger');
+            
+            slot.appendChild(createDraggableWrapper(p, 'hand', i));
+        } else {
+            lifeLabel.innerText = "";
+        }
     });
 
     const kSlot = document.getElementById('keep-slot');
@@ -665,7 +727,6 @@ function updateUI() {
 
     const nList = document.getElementById('next-list');
     nList.innerHTML = '';
-    
     pieceQueue.slice(0, 3).forEach((p, index) => {
         const item = document.createElement('div');
         item.className = 'next-item' + (index === 0 ? ' imminent' : '');
