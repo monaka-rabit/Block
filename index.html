@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Puzzle 7x7 - Next 3</title>
+    <title>Score Puzzle 7x7 - Fair Hard</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -134,7 +134,7 @@
         #next-list {
             display: flex;
             flex-direction: row;
-            gap: 20px; /* 間隔を少し広げました */
+            gap: 20px;
             align-items: flex-end;
         }
         .next-item {
@@ -280,20 +280,34 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Next 3) */
+/** * Score Puzzle 7x7 Logic (Fair Hard) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 
+// 基本的には難しい形状が多い
 const SHAPES = {
+    // Basic
     '1x1': [[1]],
-    'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]],
-    'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
-    'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
-    '2x2': [[1,1],[1,1]], '3x3': [[1,1,1],[1,1,1],[1,1,1]],
-    'Plus': [[0,1,0],[1,1,1],[0,1,0]], 'U': [[1,0,1],[1,0,1],[1,1,1]], 'Corner': [[1,1,1],[1,0,0],[1,0,0]]
+    'I2': [[1,1]], 
+    'I3': [[1,1,1]], 
+    'I4': [[1,1,1,1]], 
+    'I5': [[1,1,1,1,1]], 
+    'L2': [[1,0],[1,1]], 
+    'L3': [[1,0],[1,0],[1,1]], 
+    'J3': [[0,1],[0,1],[1,1]],
+    'T': [[1,1,1],[0,1,0]], 
+    'Z': [[1,1,0],[0,1,1]], 
+    'S': [[0,1,1],[1,1,0]],
+    
+    // Hard Shapes
+    '2x2': [[1,1],[1,1]], 
+    '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
+    'Plus': [[0,1,0],[1,1,1],[0,1,0]], 
+    'U': [[1,0,1],[1,0,1],[1,1,1]], 
+    'Corner': [[1,1,1],[1,0,0],[1,0,0]] 
 };
 
 let board = [];
@@ -320,9 +334,11 @@ function initGame() {
     score = 0; combo = 0; turnsSinceClear = 0; turnsSinceCombo = 0;
     
     pieceQueue = [];
-    for(let i=0; i<8; i++) pieceQueue.push(generateRandomPiece());
+    // 初期手札は確実に置けるものを生成（ゲーム開始時の即死防止）
+    for(let i=0; i<8; i++) pieceQueue.push(generateValidPiece());
+    
     hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
-    while(pieceQueue.length < 8) pieceQueue.push(generateRandomPiece());
+    while(pieceQueue.length < 8) pieceQueue.push(generateValidPiece());
 
     keepPiece = null;
     selectedHandIndex = 0;
@@ -333,9 +349,12 @@ function initGame() {
     updateUI();
 }
 
+// 難易度高めのランダム生成
 function generateRandomPiece() {
     const keys = Object.keys(SHAPES);
     let key;
+    
+    // 1x1などの小さいピースは出にくくする（基本はハードモード）
     for (let i = 0; i < 4; i++) {
         key = keys[Math.floor(Math.random() * keys.length)];
         if (key === '1x1' || key === 'I2') {
@@ -343,6 +362,7 @@ function generateRandomPiece() {
         }
         break; 
     }
+    
     let matrix = SHAPES[key];
     const rots = Math.floor(Math.random() * 4);
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
@@ -350,7 +370,18 @@ function generateRandomPiece() {
     return { matrix: matrix };
 }
 
-function generateValidPiece() { return generateRandomPiece(); }
+// 【安全装置】現在の盤面に置けるピースを保証する
+// 盤面が広い時は巨大ピースが出やすいが、狭くなると小さいピースが選ばれるようになる
+function generateValidPiece() {
+    for (let i = 0; i < 50; i++) {
+        let p = generateRandomPiece();
+        if (canPlaceAnywhere(p.matrix)) return p;
+    }
+    // 50回試行しても置ける巨大ピースがない場合、
+    // 最終手段として「1x1」を返す（これなら1マスでも空いていれば置ける）
+    // これで「理不尽な死」は防げる
+    return { matrix: [[1]] };
+}
 
 function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
 function rotateMatrixCCW(m) { return m[0].map((val, index) => m.map(row => row[row.length - 1 - index])); }
@@ -465,7 +496,8 @@ function attemptPlace(bx, by) {
         }
         if (draggingPieceInfo.source === 'hand') {
             hand[draggingPieceInfo.index] = pieceQueue.shift();
-            pieceQueue.push(generateRandomPiece());
+            // ここで安全装置付きの生成を行う
+            pieceQueue.push(generateValidPiece());
         } else {
             keepPiece = null;
         }
@@ -481,7 +513,7 @@ function executeKeep() {
     if (!keepPiece) {
         keepPiece = target;
         hand[idx] = pieceQueue.shift();
-        pieceQueue.push(generateRandomPiece());
+        pieceQueue.push(generateValidPiece());
     } else {
         const tmp = keepPiece;
         keepPiece = target;
