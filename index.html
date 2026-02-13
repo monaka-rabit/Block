@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Score Puzzle 7x7 - Balanced Hard</title>
+    <title>Score Puzzle 7x7 - Dynamic Limits</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -239,31 +239,36 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Balanced Hard) */
+/** * Score Puzzle 7x7 Logic (Dual Dynamic Limits) */
 
 const BOARD_SIZE = 7;
-const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 const HARD_UNLOCK_THRESHOLD = 100;
 
-// 【変更】初期寿命は10、最短は4
-const INITIAL_LIFE_LIMIT = 10;
-const MIN_LIFE_LIMIT = 4;
-const LIFE_DECREASE_STEP = 20;
+// === 難易度調整パラメータ ===
 
-// 【変更】ブロック構成を元に戻す（ペントミノ削除）
+// 1. ブロック寿命 (Piece Life)
+// 10ライン消去ごとに -1。初期10、最短4。
+const PIECE_LIFE_INITIAL = 10;
+const PIECE_LIFE_MIN = 4;
+const PIECE_LIFE_DECREASE_STEP = 10;
+
+// 2. 消去猶予ターン (Turn Limit)
+// 20ライン消去ごとに -1。初期5、最短3。
+const TURN_LIMIT_INITIAL = 5;
+const TURN_LIMIT_MIN = 3;
+const TURN_LIMIT_DECREASE_STEP = 20;
+
+// ブロック形状
 const BASIC_SHAPES = {
-    // Basic Tetrominoes
     '1x1': [[1]],
     'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]], 
     'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
     'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
-    
-    // Large Blocks (From Start)
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
-    'Corner': [[1,1,1],[1,0,0],[1,0,0]]
+    'Corner': [[1,1,1],[1,0,0],[1,0,0]] 
 };
 
 // 100ライン後のボス形状
@@ -312,10 +317,18 @@ function initGame() {
     updateUI();
 }
 
-function getCurrentMaxLife() {
-    const decrease = Math.floor(totalLines / LIFE_DECREASE_STEP);
-    const currentLife = INITIAL_LIFE_LIMIT - decrease;
-    return Math.max(MIN_LIFE_LIMIT, currentLife);
+// 現在の「ブロック寿命」を計算
+function getCurrentPieceLife() {
+    const decrease = Math.floor(totalLines / PIECE_LIFE_DECREASE_STEP);
+    const current = PIECE_LIFE_INITIAL - decrease;
+    return Math.max(PIECE_LIFE_MIN, current);
+}
+
+// 現在の「消去猶予ターン」を計算
+function getCurrentTurnLimit() {
+    const decrease = Math.floor(totalLines / TURN_LIMIT_DECREASE_STEP);
+    const current = TURN_LIMIT_INITIAL - decrease;
+    return Math.max(TURN_LIMIT_MIN, current);
 }
 
 function generateRandomPiece() {
@@ -344,11 +357,12 @@ function generateRandomPiece() {
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
     
-    return { matrix: matrix, life: getCurrentMaxLife() };
+    // 生成時点での寿命を適用
+    return { matrix: matrix, life: getCurrentPieceLife() };
 }
 
 function generateValidPiece() {
-    return generateRandomPiece(); // No safety
+    return generateRandomPiece();
 }
 
 function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
@@ -573,8 +587,10 @@ function flipSelectedHand() {
 }
 
 function checkGameOver() {
-    if (turnsSinceClear >= MAX_TURNS_WITHOUT_CLEAR) {
-        triggerGameOver("タイムアップ (5ターン消去なし)");
+    // 【変更】動的なLIMIT値を使用
+    const currentLimit = getCurrentTurnLimit();
+    if (turnsSinceClear >= currentLimit) {
+        triggerGameOver(`タイムアップ (${currentLimit}ターン消去なし)`);
         return;
     }
     for(let i=0; i<3; i++) {
@@ -619,7 +635,9 @@ function updateUI() {
     document.getElementById('score').innerText = score.toLocaleString();
     document.getElementById('line-count').innerText = totalLines;
     
-    const limit = MAX_TURNS_WITHOUT_CLEAR - turnsSinceClear;
+    // 【変更】動的なLIMITを表示
+    const maxLimit = getCurrentTurnLimit();
+    const limit = maxLimit - turnsSinceClear;
     const displayLimit = Math.max(0, limit);
     document.getElementById('turn-limit').innerText = displayLimit;
     
