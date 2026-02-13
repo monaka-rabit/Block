@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Score Puzzle 7x7 - Result</title>
+    <title>Score Puzzle 7x7 - HELL MODE</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -12,7 +12,7 @@
             --cell-filled: #f1c40f;
             --cell-preview: rgba(241, 196, 15, 0.5);
             --text: #ffffff;
-            --accent: #f1c40f;
+            --accent: #e74c3c; /* HELL MODEなので赤アクセント */
             --danger: #e74c3c;
             --selected: #e74c3c;
             --board-size: min(92vw, 50dvh, 450px);
@@ -32,7 +32,7 @@
             padding-bottom: env(safe-area-inset-bottom); 
         }
 
-        h1 { margin: 0; padding: 5px 0; font-size: 1.2rem; flex-shrink: 0; }
+        h1 { margin: 0; padding: 5px 0; font-size: 1.2rem; flex-shrink: 0; color: var(--accent); }
 
         .game-container {
             display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
@@ -136,22 +136,22 @@
             background: rgba(0,0,0,0.9); display: none;
             flex-direction: column; justify-content: center; align-items: center; z-index: 2000;
         }
-        /* リザルト用カードデザイン */
+        
         .result-card {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            text-align: center;
-            width: 80%;
-            max-width: 300px;
-            border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(5px);
+            background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px;
+            margin-bottom: 20px; text-align: center; width: 80%; max-width: 300px;
+            border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px); flex-shrink: 0;
         }
         .result-label { font-size: 0.9rem; color: #bdc3c7; margin-top: 10px; }
         .result-value { font-size: 2rem; font-weight: bold; line-height: 1.2; }
         .result-score { color: #f1c40f; font-size: 2.5rem; }
         .result-lines { color: #3498db; }
+
+        #game-over button {
+            background: #2ecc71; border: none; padding: 12px 40px; font-size: 1.2rem;
+            border-radius: 30px; cursor: pointer; margin-top: 15px; width: auto;
+            flex-shrink: 0; display: block; line-height: normal;
+        }
 
         .danger { color: var(--danger) !important; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
@@ -159,7 +159,7 @@
 </head>
 <body>
 
-    <h1>Score Puzzle 7x7</h1>
+    <h1>Score Puzzle 7x7 HELL</h1>
 
     <div class="game-container">
         <div class="top-panels">
@@ -194,15 +194,15 @@
 
         <div id="hand-container">
             <div class="piece-slot-wrapper">
-                <div id="life-0" class="piece-life">あと10</div>
+                <div id="life-0" class="piece-life">あと8</div>
                 <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
             </div>
             <div class="piece-slot-wrapper">
-                <div id="life-1" class="piece-life">あと10</div>
+                <div id="life-1" class="piece-life">あと8</div>
                 <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
             </div>
             <div class="piece-slot-wrapper">
-                <div id="life-2" class="piece-life">あと10</div>
+                <div id="life-2" class="piece-life">あと8</div>
                 <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
             </div>
         </div>
@@ -224,8 +224,8 @@
     </div>
 
     <div id="game-over">
-        <h1 style="color: #e74c3c; margin-bottom: 10px;">GAME OVER</h1>
-        <p id="game-over-reason" style="font-size: 1rem; color: #ecf0f1; margin-bottom: 20px;"></p>
+        <h1 style="color: #e74c3c; margin-bottom: 10px; flex-shrink: 0;">GAME OVER</h1>
+        <p id="game-over-reason" style="font-size: 1rem; color: #ecf0f1; margin-bottom: 20px; flex-shrink: 0; text-align: center; padding: 0 20px;"></p>
         
         <div class="result-card">
             <div class="result-label">LINES</div>
@@ -235,11 +235,11 @@
             <div id="final-score" class="result-value result-score">0</div>
         </div>
 
-        <button onclick="initGame()" style="background: #2ecc71; border:none; padding: 15px 40px; font-size: 1.2rem; border-radius: 30px; cursor: pointer;">RETRY</button>
+        <button onclick="initGame()">RETRY</button>
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Result Screen) */
+/** * Score Puzzle 7x7 Logic (HELL MODE) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
@@ -247,24 +247,36 @@ const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 const HARD_UNLOCK_THRESHOLD = 100;
 
-// 【変更点】寿命計算用
-const INITIAL_LIFE_LIMIT = 10;
-const MIN_LIFE_LIMIT = 5;
-const LIFE_DECREASE_STEP = 20;
+// 【変更点】地獄級の寿命設定
+const INITIAL_LIFE_LIMIT = 8;  // 開始時8
+const MIN_LIFE_LIMIT = 3;      // 最低3（鬼畜）
+const LIFE_DECREASE_STEP = 10; // 10ラインごとに寿命が減る（早い）
 
+// 形状データ (ペントミノを追加)
 const BASIC_SHAPES = {
+    // Basic Tetrominoes
     '1x1': [[1]],
     'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]], 
     'L2': [[1,0],[1,1]], 'L3': [[1,0],[1,0],[1,1]], 'J3': [[0,1],[0,1],[1,1]],
     'T': [[1,1,1],[0,1,0]], 'Z': [[1,1,0],[0,1,1]], 'S': [[0,1,1],[1,1,0]],
+    
+    // Large Blocks (From Start)
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
-    'Corner': [[1,1,1],[1,0,0],[1,0,0]] 
+    'Corner': [[1,1,1],[1,0,0],[1,0,0]],
+
+    // Pentominoes (From Start - Nasty)
+    'Pento_W': [[1,0,0],[1,1,0],[0,1,1]],
+    'Pento_F': [[0,1,1],[1,1,0],[0,1,0]],
+    'Pento_Z': [[1,1,0],[0,1,0],[0,1,1]],
+    'Pento_T': [[1,1,1],[0,1,0],[0,1,0]]
 };
 
+// 100ライン後のボス級形状
 const HARD_SHAPES = {
-    'Plus': [[0,1,0],[1,1,1],[0,1,0]], // 十字
-    'U': [[1,0,1],[1,0,1],[1,1,1]]     // コの字
+    'Plus': [[0,1,0],[1,1,1],[0,1,0]], 
+    'U': [[1,0,1],[1,0,1],[1,1,1]],
+    'X': [[1,0,1],[0,1,0],[1,0,1]] // X型追加
 };
 
 let board = [];
@@ -293,10 +305,10 @@ function initGame() {
     totalLines = 0;
     
     pieceQueue = [];
-    for(let i=0; i<8; i++) pieceQueue.push(generateValidPiece());
+    for(let i=0; i<8; i++) pieceQueue.push(generateRandomPiece());
     
     hand = [pieceQueue.shift(), pieceQueue.shift(), pieceQueue.shift()];
-    while(pieceQueue.length < 8) pieceQueue.push(generateValidPiece());
+    while(pieceQueue.length < 8) pieceQueue.push(generateRandomPiece());
 
     keepPiece = null;
     selectedHandIndex = 0;
@@ -320,10 +332,11 @@ function generateRandomPiece() {
     }
 
     let key;
+    // 小さいピースは90%の確率で弾く（ほぼ出ない）
     for (let i = 0; i < 4; i++) {
         key = pool[Math.floor(Math.random() * pool.length)];
         if (key === '1x1' || key === 'I2') {
-            if (Math.random() > 0.2) continue; 
+            if (Math.random() > 0.1) continue; // 90% continue
         }
         break; 
     }
@@ -342,11 +355,7 @@ function generateRandomPiece() {
 }
 
 function generateValidPiece() {
-    for (let i = 0; i < 50; i++) {
-        let p = generateRandomPiece();
-        if (canPlaceAnywhere(p.matrix)) return p;
-    }
-    return { matrix: [[1]], life: getCurrentMaxLife() };
+    return generateRandomPiece(); // No safety
 }
 
 function rotateMatrixCW(m) { return m[0].map((val, index) => m.map(row => row[index]).reverse()); }
