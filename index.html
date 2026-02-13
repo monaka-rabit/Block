@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Score Puzzle 7x7 - HELL MODE</title>
+    <title>Score Puzzle 7x7 - Balanced Hard</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -12,7 +12,7 @@
             --cell-filled: #f1c40f;
             --cell-preview: rgba(241, 196, 15, 0.5);
             --text: #ffffff;
-            --accent: #e74c3c; /* HELL MODEなので赤アクセント */
+            --accent: #f1c40f;
             --danger: #e74c3c;
             --selected: #e74c3c;
             --board-size: min(92vw, 50dvh, 450px);
@@ -32,7 +32,7 @@
             padding-bottom: env(safe-area-inset-bottom); 
         }
 
-        h1 { margin: 0; padding: 5px 0; font-size: 1.2rem; flex-shrink: 0; color: var(--accent); }
+        h1 { margin: 0; padding: 5px 0; font-size: 1.2rem; flex-shrink: 0; }
 
         .game-container {
             display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
@@ -159,7 +159,7 @@
 </head>
 <body>
 
-    <h1>Score Puzzle 7x7 HELL</h1>
+    <h1>Score Puzzle 7x7</h1>
 
     <div class="game-container">
         <div class="top-panels">
@@ -194,15 +194,15 @@
 
         <div id="hand-container">
             <div class="piece-slot-wrapper">
-                <div id="life-0" class="piece-life">あと8</div>
+                <div id="life-0" class="piece-life">あと10</div>
                 <div id="hand-0" class="piece-slot" onclick="selectHand(0)"></div>
             </div>
             <div class="piece-slot-wrapper">
-                <div id="life-1" class="piece-life">あと8</div>
+                <div id="life-1" class="piece-life">あと10</div>
                 <div id="hand-1" class="piece-slot" onclick="selectHand(1)"></div>
             </div>
             <div class="piece-slot-wrapper">
-                <div id="life-2" class="piece-life">あと8</div>
+                <div id="life-2" class="piece-life">あと10</div>
                 <div id="hand-2" class="piece-slot" onclick="selectHand(2)"></div>
             </div>
         </div>
@@ -239,7 +239,7 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (HELL MODE) */
+/** * Score Puzzle 7x7 Logic (Balanced Hard) */
 
 const BOARD_SIZE = 7;
 const MAX_TURNS_WITHOUT_CLEAR = 5;
@@ -247,12 +247,12 @@ const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 const HARD_UNLOCK_THRESHOLD = 100;
 
-// 【変更点】地獄級の寿命設定
-const INITIAL_LIFE_LIMIT = 8;  // 開始時8
-const MIN_LIFE_LIMIT = 3;      // 最低3（鬼畜）
-const LIFE_DECREASE_STEP = 10; // 10ラインごとに寿命が減る（早い）
+// 【変更】初期寿命は10、最短は4
+const INITIAL_LIFE_LIMIT = 10;
+const MIN_LIFE_LIMIT = 4;
+const LIFE_DECREASE_STEP = 20;
 
-// 形状データ (ペントミノを追加)
+// 【変更】ブロック構成を元に戻す（ペントミノ削除）
 const BASIC_SHAPES = {
     // Basic Tetrominoes
     '1x1': [[1]],
@@ -263,20 +263,13 @@ const BASIC_SHAPES = {
     // Large Blocks (From Start)
     '2x2': [[1,1],[1,1]], 
     '3x3': [[1,1,1],[1,1,1],[1,1,1]], 
-    'Corner': [[1,1,1],[1,0,0],[1,0,0]],
-
-    // Pentominoes (From Start - Nasty)
-    'Pento_W': [[1,0,0],[1,1,0],[0,1,1]],
-    'Pento_F': [[0,1,1],[1,1,0],[0,1,0]],
-    'Pento_Z': [[1,1,0],[0,1,0],[0,1,1]],
-    'Pento_T': [[1,1,1],[0,1,0],[0,1,0]]
+    'Corner': [[1,1,1],[1,0,0],[1,0,0]]
 };
 
-// 100ライン後のボス級形状
+// 100ライン後のボス形状
 const HARD_SHAPES = {
     'Plus': [[0,1,0],[1,1,1],[0,1,0]], 
-    'U': [[1,0,1],[1,0,1],[1,1,1]],
-    'X': [[1,0,1],[0,1,0],[1,0,1]] // X型追加
+    'U': [[1,0,1],[1,0,1],[1,1,1]]
 };
 
 let board = [];
@@ -332,11 +325,11 @@ function generateRandomPiece() {
     }
 
     let key;
-    // 小さいピースは90%の確率で弾く（ほぼ出ない）
+    // 小さいピースは出にくくする
     for (let i = 0; i < 4; i++) {
         key = pool[Math.floor(Math.random() * pool.length)];
         if (key === '1x1' || key === 'I2') {
-            if (Math.random() > 0.1) continue; // 90% continue
+            if (Math.random() > 0.1) continue; 
         }
         break; 
     }
