@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Score Puzzle 7x7 - Dynamic Limits</title>
+    <title>Score Puzzle 7x7 - Limit Down FX</title>
     <style>
         :root {
             --bg-color: #2c3e50;
@@ -37,6 +37,7 @@
         .game-container {
             display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
             width: 100%; height: 100%; max-width: 500px; padding: 5px 10px;
+            position: relative; /* エフェクト表示用 */
         }
 
         .top-panels {
@@ -48,9 +49,26 @@
             background: rgba(0,0,0,0.3); padding: 2px; border-radius: 6px; text-align: center;
             border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;
             justify-content: center; height: 45px;
+            transition: all 0.2s;
         }
         .info-box .label { font-size: 0.6rem; color: #bdc3c7; margin-bottom: 2px; }
         .info-box .value { font-size: 0.9rem; font-weight: bold; margin: 0; }
+
+        /* リミットダウン時の激しい演出 */
+        @keyframes limitDownShake {
+            0% { transform: scale(1); background-color: rgba(0,0,0,0.3); }
+            10% { transform: scale(1.2) rotate(-5deg); background-color: var(--danger); box-shadow: 0 0 15px var(--danger); }
+            20% { transform: scale(1.2) rotate(5deg); }
+            30% { transform: scale(1.2) rotate(-5deg); }
+            40% { transform: scale(1.2) rotate(5deg); }
+            50% { transform: scale(1.1); background-color: var(--danger); }
+            100% { transform: scale(1); background-color: rgba(0,0,0,0.3); }
+        }
+        .limit-reduced-anim {
+            animation: limitDownShake 0.8s ease-in-out;
+            z-index: 100;
+            border-color: var(--danger) !important;
+        }
 
         #keep-slot {
             width: 30px; height: 30px; margin: 0 auto; border: 1px dashed #7f8c8d;
@@ -153,6 +171,24 @@
             flex-shrink: 0; display: block; line-height: normal;
         }
 
+        /* 画面中央に出る警告メッセージ */
+        #floating-message {
+            position: absolute;
+            top: 40%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 2rem; font-weight: bold; color: var(--danger);
+            text-shadow: 0 0 10px #000;
+            pointer-events: none; z-index: 1500;
+            opacity: 0;
+            white-space: nowrap;
+        }
+        @keyframes floatUpFade {
+            0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+            100% { opacity: 0; transform: translate(-50%, -80%) scale(1.0); }
+        }
+        .msg-anim { animation: floatUpFade 2.0s ease-out forwards; }
+
         .danger { color: var(--danger) !important; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
     </style>
@@ -162,6 +198,8 @@
     <h1>Score Puzzle 7x7</h1>
 
     <div class="game-container">
+        <div id="floating-message"></div>
+
         <div class="top-panels">
             <div class="info-box">
                 <div class="label">SCORE</div>
@@ -239,28 +277,22 @@
     </div>
 
 <script>
-/** * Score Puzzle 7x7 Logic (Dual Dynamic Limits) */
+/** * Score Puzzle 7x7 Logic (With Limit Down FX) */
 
 const BOARD_SIZE = 7;
+const MAX_TURNS_WITHOUT_CLEAR = 5;
 const COMBO_TIMEOUT_TURNS = 3;
 const ANIMATION_DURATION = 400;
 const HARD_UNLOCK_THRESHOLD = 100;
 
-// === 難易度調整パラメータ ===
+const INITIAL_LIFE_LIMIT = 10;
+const MIN_LIFE_LIMIT = 4;
+const LIFE_DECREASE_STEP = 10;
 
-// 1. ブロック寿命 (Piece Life)
-// 10ライン消去ごとに -1。初期10、最短4。
-const PIECE_LIFE_INITIAL = 10;
-const PIECE_LIFE_MIN = 4;
-const PIECE_LIFE_DECREASE_STEP = 10;
-
-// 2. 消去猶予ターン (Turn Limit)
-// 20ライン消去ごとに -1。初期5、最短3。
 const TURN_LIMIT_INITIAL = 5;
 const TURN_LIMIT_MIN = 3;
 const TURN_LIMIT_DECREASE_STEP = 20;
 
-// ブロック形状
 const BASIC_SHAPES = {
     '1x1': [[1]],
     'I2': [[1,1]], 'I3': [[1,1,1]], 'I4': [[1,1,1,1]], 'I5': [[1,1,1,1,1]], 
@@ -271,7 +303,6 @@ const BASIC_SHAPES = {
     'Corner': [[1,1,1],[1,0,0],[1,0,0]] 
 };
 
-// 100ライン後のボス形状
 const HARD_SHAPES = {
     'Plus': [[0,1,0],[1,1,1],[0,1,0]], 
     'U': [[1,0,1],[1,0,1],[1,1,1]]
@@ -317,14 +348,12 @@ function initGame() {
     updateUI();
 }
 
-// 現在の「ブロック寿命」を計算
 function getCurrentPieceLife() {
-    const decrease = Math.floor(totalLines / PIECE_LIFE_DECREASE_STEP);
-    const current = PIECE_LIFE_INITIAL - decrease;
-    return Math.max(PIECE_LIFE_MIN, current);
+    const decrease = Math.floor(totalLines / LIFE_DECREASE_STEP);
+    const current = INITIAL_LIFE_LIMIT - decrease;
+    return Math.max(MIN_LIFE_LIMIT, current);
 }
 
-// 現在の「消去猶予ターン」を計算
 function getCurrentTurnLimit() {
     const decrease = Math.floor(totalLines / TURN_LIMIT_DECREASE_STEP);
     const current = TURN_LIMIT_INITIAL - decrease;
@@ -338,7 +367,6 @@ function generateRandomPiece() {
     }
 
     let key;
-    // 小さいピースは出にくくする
     for (let i = 0; i < 4; i++) {
         key = pool[Math.floor(Math.random() * pool.length)];
         if (key === '1x1' || key === 'I2') {
@@ -357,7 +385,6 @@ function generateRandomPiece() {
     for(let i=0; i<rots; i++) matrix = rotateMatrixCW(matrix);
     if(Math.random() > 0.5) matrix = flipMatrix(matrix);
     
-    // 生成時点での寿命を適用
     return { matrix: matrix, life: getCurrentPieceLife() };
 }
 
@@ -515,6 +542,23 @@ function decreasePieceLife() {
     });
 }
 
+// 【変更】リミット減少時の演出関数
+function triggerLimitDownEffect() {
+    const turnBox = document.getElementById('turn-box');
+    const msg = document.getElementById('floating-message');
+    
+    // アニメーションクラスを付け外しして再火させる
+    turnBox.classList.remove('limit-reduced-anim');
+    void turnBox.offsetWidth; // リフロー強制
+    turnBox.classList.add('limit-reduced-anim');
+
+    // メッセージ表示
+    msg.innerText = "LIMIT DOWN!!";
+    msg.classList.remove('msg-anim');
+    void msg.offsetWidth;
+    msg.classList.add('msg-anim');
+}
+
 function processTurn() {
     let rows = [], cols = [];
     for(let y=0; y<BOARD_SIZE; y++) if(board[y].every(c => c===1)) rows.push(y);
@@ -531,6 +575,9 @@ function processTurn() {
         });
 
         setTimeout(() => {
+            // 消去前のリミットを保存
+            const prevLimit = getCurrentTurnLimit();
+
             rows.forEach(y => board[y].fill(0));
             cols.forEach(x => { for(let y=0; y<BOARD_SIZE; y++) board[y][x] = 0; });
             
@@ -545,6 +592,14 @@ function processTurn() {
             const linesCleared = rows.length + cols.length;
             totalLines += linesCleared;
             
+            // 消去後のリミットを確認
+            const nextLimit = getCurrentTurnLimit();
+            
+            // リミットが減っていたら演出発動
+            if (nextLimit < prevLimit) {
+                triggerLimitDownEffect();
+            }
+
             const baseScore = linesCleared * 100 * BOARD_SIZE;
             score += Math.floor(baseScore * (1 + (combo - 1) * 0.5));
             
@@ -587,7 +642,6 @@ function flipSelectedHand() {
 }
 
 function checkGameOver() {
-    // 【変更】動的なLIMIT値を使用
     const currentLimit = getCurrentTurnLimit();
     if (turnsSinceClear >= currentLimit) {
         triggerGameOver(`タイムアップ (${currentLimit}ターン消去なし)`);
@@ -635,7 +689,6 @@ function updateUI() {
     document.getElementById('score').innerText = score.toLocaleString();
     document.getElementById('line-count').innerText = totalLines;
     
-    // 【変更】動的なLIMITを表示
     const maxLimit = getCurrentTurnLimit();
     const limit = maxLimit - turnsSinceClear;
     const displayLimit = Math.max(0, limit);
